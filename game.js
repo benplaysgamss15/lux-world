@@ -521,6 +521,97 @@ function updateBattle(){
     const b=G.battle; if(b.eshake>0) b.eshake--; if(b.pshake>0) b.pshake--; if(b.cshake>0) b.cshake--;
     b.dnums=b.dnums.filter(dn=>{dn.life--;return dn.life>0;});
 }
+// ── INPUT, CHEATS & GAME START ──
+function doCheatPrompt(){
+    const code = window.prompt("Secret Developer Console:\nEnter command:");
+    if(!code) return;
+    const c = code.trim().toLowerCase();
+    if(c === 'dev_money') {
+        G.wheat += 999999; G.cheatsActive = true; addChatMessage('System', "Cheat Activated: +999,999 Buckets");
+    } else if(c === 'dev_dinos') {
+        for(let k in DINOS) G.discovered[k] = true; G.cheatsActive = true; addChatMessage('System', "Cheat Activated: All Dinos Unlocked");
+    } else if(c === 'dev_god') {
+        G.player.upg.hp = 99; G.player.upg.atk = 99; G.player.upg.spd = 99;
+        G.playerHp = pMaxHp(); G.cheatsActive = true; addChatMessage('System', "Cheat Activated: GOD MODE");
+    } else if(c === 'dev_lvl2') {
+        G.level = 2; G.discovered = {utahraptor: true}; G.player.dk = 'utahraptor';
+        generateWorld(); spawnWilds(); spawnMega(); G.playerHp = pMaxHp();
+        G.volcanoTimer = 10800; G.volcanoActive = 0; G.hazards =[];
+        G.cheatsActive = true; addChatMessage('System', "Cheat Activated: Teleported to Volcano Map");
+    }
+}
+
+window.addEventListener('keydown',e=>{
+    G.keys[e.key]=true;G.keys[e.key.toLowerCase()]=true;
+    if(G.state==='intro') {
+        if(!window.activeSave) startGame(false);
+    }
+    if(e.key==='`' || e.key==='~') doCheatPrompt();
+
+    if (e.key === '/' && document.getElementById('chatBox').style.display !== 'flex' && G.state === 'world') {
+        e.preventDefault(); document.getElementById('chatBox').style.display = 'flex';
+        document.getElementById('chatInp').focus(); document.getElementById('chatMessages').style.pointerEvents = 'auto'; wakeChat();
+    }
+});
+window.addEventListener('keyup',e=>{ G.keys[e.key]=false;G.keys[e.key.toLowerCase()]=false; });
+canvas.addEventListener('mousemove',e=>{
+    const r=canvas.getBoundingClientRect(); G.mx=e.clientX-r.left;G.my=e.clientY-r.top;
+});
+canvas.addEventListener('click',e=>{
+    if(document.getElementById('chatBox').style.display === 'flex' && e.clientY > 100) { closeChatUI(); return; }
+    const r=canvas.getBoundingClientRect(); const cx=e.clientX-r.left, cy=e.clientY-r.top;
+    if(G.state==='intro'){
+        for(const b of G.btns){if(cx>=b.x&&cx<=b.x+b.w&&cy>=b.y&&cy<=b.y+b.h){b.act();return;}}
+        if(!window.activeSave) startGame(false);
+        return;
+    }
+    for(const b of G.btns){if(cx>=b.x&&cx<=b.x+b.w&&cy>=b.y&&cy<=b.y+b.h){b.act();return;}}
+    if(G.state==='world' && cx<80 && cy<50) { doCheatPrompt(); return; }
+});
+canvas.addEventListener('touchstart',e=>{
+    const r=canvas.getBoundingClientRect(); const t=e.touches[0]; const tx=t.clientX-r.left, ty=t.clientY-r.top;
+    if(G.state==='intro'){
+        for(const b of G.btns){if(tx>=b.x&&tx<=b.x+b.w&&ty>=b.y&&ty<=b.y+b.h){b.act();return;}}
+        if(!window.activeSave) startGame(false);
+        return;
+    }
+    for(const b of G.btns){if(tx>=b.x&&tx<=b.x+b.w&&ty>=b.y&&ty<=b.y+b.h){b.act();return;}}
+    if(G.state==='world' && tx<80 && ty<50) { doCheatPrompt(); return; }
+    if(G.state==='world'){G.joy.on=true;G.joy.sx=tx;G.joy.sy=ty;G.joy.dx=0;G.joy.dy=0;}
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+    if(!G.joy.on)return; const r=canvas.getBoundingClientRect();const t=e.touches[0];
+    G.joy.dx=t.clientX-r.left-G.joy.sx; G.joy.dy=t.clientY-r.top-G.joy.sy;
+},{passive:false});
+canvas.addEventListener('touchend',e=>{ G.joy.on=false;G.joy.dx=0;G.joy.dy=0; },{passive:false});
+
+function startGame(isNew = false) {
+    if (!isNew && window.activeSave) {
+        const s = window.activeSave;
+        G.level = s.level || 1; G.wheat = s.wheat || 60; G.player = s.player;
+        if (!G.player.oc) G.player.oc = {body:'#40c4ff',legs:'#1a347a',head:'#ffd700',neck:'#ffd700',tail:'#2a5acc'};
+        G.playerHp = s.playerHp; G.playerShield = s.playerShield || 0; G.discovered = s.discovered;
+        G.volcanoTimer = s.volcanoTimer || 10800; G.megaTimer = s.megaTimer || 3600; G.megaOnLand = s.megaOnLand || false;
+        window.activeSave = null;
+        generateWorld(); spawnWilds(); spawnMega();
+        G.cam.x = Math.max(0, Math.min(WS*TS-canvas.width, G.player.x - canvas.width/2));
+        G.cam.y = Math.max(0, Math.min(WS*TS-canvas.height, G.player.y - canvas.height/2));
+        G.coop = { partnerId: null, partnerName: '', reqTo: null, reqFrom: null, reqFromName: '' };
+    } else if (isNew) {
+        G.level = 1; G.wheat = 60; G.playerHp = 80; G.playerShield = 0; G.discovered = {raptor:true};
+        G.player = {x:WS/2*TS, y:WS/2*TS, dk:'raptor', face:1, anim:0, moving:false, upg:{hp:0,atk:0,spd:0}, hat:'bucket', oc:{body:'#40c4ff',legs:'#1a347a',head:'#ffd700',neck:'#ffd700',tail:'#2a5acc'}};
+        G.volcanoTimer = 10800; G.megaTimer = 3600; G.megaOnLand = false; G.cheatsActive = false;
+        G.coop = { partnerId: null, partnerName: '', reqTo: null, reqFrom: null, reqFromName: '' };
+        generateWorld(); spawnWilds(); spawnMega();
+        G.cam.x = Math.max(0, Math.min(WS*TS-canvas.width, G.player.x - canvas.width/2));
+        G.cam.y = Math.max(0, Math.min(WS*TS-canvas.height, G.player.y - canvas.height/2));
+    } else {
+        G.playerHp = pMaxHp();
+        G.cam.x = Math.max(0, Math.min(WS*TS-canvas.width, G.player.x - canvas.width/2));
+        G.cam.y = Math.max(0, Math.min(WS*TS-canvas.height, G.player.y - canvas.height/2));
+    }
+    G.state = 'world';
+}
 
 // ── INITIALIZATION ──
 function loop(){update();render();requestAnimationFrame(loop);}
