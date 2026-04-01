@@ -309,6 +309,15 @@ function drawHUD(){
     hpBar(W-195,12,180,16,G.playerHp,pMaxHp(),hcol,`HP ${G.playerHp}/${pMaxHp()}`);
     if (G.playerShield > 0) hpBar(W-195,30,180,10,G.playerShield,Math.floor(pMaxHp()*0.4),'#44aaff',`SHIELD`);
 
+    // RESTORED RESTART BUTTON!
+    btn(W-100, 32, 85, 20, 'Restart', '#aa2222', '#fff', () => {
+        if(confirm("Are you sure you want to restart? All progress will be lost!")) {
+            localStorage.removeItem('dinoworld_save'); window.activeSave = null;
+            if(G.coop.partnerId) { sendCoop({ type: 'coop_break', target: G.coop.partnerId }); breakCoop("You restarted."); }
+            startGame(true); G.state = 'intro';
+        }
+    }, '🔄');
+
     const isConnected = G.peerId || Object.keys(G.conns).length > 0;
     if (!isConnected) {
         btn(W-100, 56, 40, 20, 'Host', '#8822cc', '#fff', () => showMpModal('host')); btn(W-55, 56, 40, 20, 'Join', '#cc2288', '#fff', () => showMpModal('join'));
@@ -624,59 +633,38 @@ function drawIntro(){
 // ── MAIN RENDER LOOP ──
 function render(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    
     if(G.state==='intro'){drawIntro();return;}
     
     if(G.state==='world'){
         ctx.save();
         if(G.camShake > 0) ctx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10);
         
-        drawWorld();
-        drawWilds();
-        drawPlayer();
+        drawWorld(); drawWilds(); drawPlayer();
 
         for (let id in G.otherPlayers) {
             if (!G.isHost && G.peer && id === G.peer.id) continue; 
-            const op = G.otherPlayers[id];
-            if (!op) continue;
-
-            const sx = op.x - G.cam.x;
-            const sy = op.y - G.cam.y;
+            const op = G.otherPlayers[id]; if (!op) continue;
+            const sx = op.x - G.cam.x; const sy = op.y - G.cam.y;
             if (sx > -100 && sx < canvas.width + 100 && sy > -100 && sy < canvas.height + 100) {
                 drawDino(op.dk, sx, sy, op.face, op.anim, 1.25, 0.75, op.oc); 
-                const headOff = DINOS[op.dk].sz * 1.25 * 0.55;
-                const bob = Math.sin(op.anim * 0.18) * 2.5;
+                const headOff = DINOS[op.dk].sz * 1.25 * 0.55; const bob = Math.sin(op.anim * 0.18) * 2.5;
                 drawHat(op.hat || 'bucket', sx, sy - headOff + bob - 2, 1.1);
-                
-                if (op.coopPartner) {
-                    ctx.fillStyle='#dd88ff'; ctx.font='bold 10px Courier New'; ctx.textAlign='center';
-                    ctx.fillText(`Bonded`, sx, sy - DINOS[op.dk].sz - 35);
-                }
-                
-                ctx.fillStyle='#aaddff'; ctx.font='bold 12px Courier New'; ctx.textAlign='center';
-                ctx.fillText(op.name || 'Player', sx, sy - DINOS[op.dk].sz - 25);
+                if (op.coopPartner) { ctx.fillStyle='#dd88ff'; ctx.font='bold 10px Courier New'; ctx.textAlign='center'; ctx.fillText(`Bonded`, sx, sy - DINOS[op.dk].sz - 35); }
+                ctx.fillStyle='#aaddff'; ctx.font='bold 12px Courier New'; ctx.textAlign='center'; ctx.fillText(op.name || 'Player', sx, sy - DINOS[op.dk].sz - 25);
             }
         }
-
-        drawHazards();
-        updateDrawParticles();
-        ctx.restore();
+        drawHazards(); updateDrawParticles(); ctx.restore();
         
         if(G.level===2 && G.volcanoActive > 0){
             ctx.fillStyle = 'rgba(255, 40, 0, 0.15)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#ff4444'; ctx.shadowColor = '#000'; ctx.shadowBlur = 4; ctx.font = 'bold 22px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
             ctx.fillText(`🌋 VOLCANO ERUPTION! DODGE FALLING ROCKS! ${Math.ceil(G.volcanoActive/60)}s`, canvas.width/2, 60); ctx.shadowBlur = 0;
         }
-        
         drawHUD();
-        
         if(G.joy.on){
-            const jx=G.joy.sx,jy=G.joy.sy; ctx.fillStyle='rgba(255,255,255,0.12)';ctx.beginPath();ctx.arc(jx,jy,52,0,Math.PI*2);ctx.fill();
-            ctx.strokeStyle='rgba(255,255,255,0.45)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(jx,jy,52,0,Math.PI*2);ctx.stroke();
-            const jl=Math.min(42,Math.hypot(G.joy.dx,G.joy.dy)); const ja=Math.atan2(G.joy.dy,G.joy.dx);
-            ctx.fillStyle='rgba(255,255,255,0.35)';ctx.beginPath(); ctx.arc(jx+Math.cos(ja)*jl,jy+Math.sin(ja)*jl,26,0,Math.PI*2);ctx.fill();
+            const jx=G.joy.sx,jy=G.joy.sy; ctx.fillStyle='rgba(255,255,255,0.12)';ctx.beginPath();ctx.arc(jx,jy,52,0,Math.PI*2);ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.45)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(jx,jy,52,0,Math.PI*2);ctx.stroke();
+            const jl=Math.min(42,Math.hypot(G.joy.dx,G.joy.dy)); const ja=Math.atan2(G.joy.dy,G.joy.dx); ctx.fillStyle='rgba(255,255,255,0.35)';ctx.beginPath(); ctx.arc(jx+Math.cos(ja)*jl,jy+Math.sin(ja)*jl,26,0,Math.PI*2);ctx.fill();
         }
-        
     } else if(G.state==='battle'){ drawBattle(); updateDrawParticles();
     } else if(G.state==='index'){ drawIndex();
     } else if(G.state==='shop'){ drawShop(); updateDrawParticles();
