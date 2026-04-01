@@ -114,7 +114,7 @@ mpModal.addEventListener('touchstart', e => e.stopPropagation());
 mpModal.addEventListener('touchmove', e => e.stopPropagation());
 mpModal.addEventListener('click', e => e.stopPropagation());
 
-// ── MULTIPLAYER LOGIC & PVP (HOST & PARTY SYSTEM) ──
+// ── MULTIPLAYER LOGIC & PVP/COOP PACKET ROUTING ──
 function leaveGame() {
     if(G.sessionTimer) { clearTimeout(G.sessionTimer); G.sessionTimer = null; }
     if(syncInterval) { clearInterval(syncInterval); syncInterval = null; }
@@ -126,6 +126,7 @@ function leaveGame() {
     G.peerId = null;
     G.otherPlayers = {};
     G.isHost = false;
+    if(G.coop.partnerId) breakCoop("Disconnected from room.");
     addChatMessage('System', 'Disconnected from room.');
 }
 
@@ -148,9 +149,20 @@ function sendPvP(data) {
     } catch(e) { console.error("PvP Send Error:", e); }
 }
 
+function sendCoop(data) {
+    try {
+        if (G.isHost) {
+            if (data.target === 'host') handleCoopMessage(data); 
+            else if (G.conns[data.target] && G.conns[data.target].open) G.conns[data.target].send(data);
+        } else {
+            if (G.conns['host'] && G.conns['host'].open) G.conns['host'].send(data);
+        }
+    } catch(e) { console.error("Coop Send Error:", e); }
+}
+
 function handlePvPMessage(data) {
     if (data.type === 'pvp_request') {
-        if (G.state === 'world' && G.pvp.cd === 0 && G.encCd <= 0) {
+        if (G.state === 'world' && G.pvp.cd === 0 && G.encCd <= 0 && !G.coop.partnerId) {
             G.pvp.reqFrom = data.sender;
             G.pvp.reqFromName = data.name;
             G.pvp.reqFromStats = data.stats;
@@ -200,6 +212,51 @@ function handlePvPMessage(data) {
     }
 }
 
+function handleCoopMessage(data) {
+    if (data.type === 'coop_request') {
+        if (G.coop.partnerId || G.state !== 'world') {
+            sendCoop({ type: 'coop_reply', accept: false, sender: (G.isHost?'host':G.peer.id), name: G.username||'Player', target: data.sender });
+            return;
+        }
+        G.coop.reqFrom = data.sender;
+        G.coop.reqFromName = data.name;
+    } else if (data.type === 'coop_reply') {
+        if (data.accept && G.coop.reqTo === data.sender) {
+            bondWithPartner(data.sender, data.name);
+        } else {
+            if (G.coop.reqTo === data.sender) addChatMessage('System', data.name + ' denied the Co-op request.');
+            G.coop.reqTo = null;
+        }
+    } else if (data.type === 'coop_break') {
+        breakCoop("Partner left the Co-op party.");
+    } else if (data.type === 'coop_battle_start') {
+        if (G.state === 'battle' && G.battle.isCoop) {
+            addChatMessage('System', 'Collision! Both users attacked a Dino at the exact same time! Resetting encounter.');
+            exitBattle();
+            sendCoop({ type: 'coop_battle_abort', target: G.coop.partnerId });
+            return;
+        }
+        startCoopBattle(data.ek, data.isBoss, false, data.stats);
+    } else if (data.type === 'coop_battle_abort') {
+        if (G.state === 'battle') {
+            addChatMessage('System', 'Collision! Both users attacked a Dino at the exact same time! Resetting encounter.');
+            exitBattle();
+        }
+    } else if (data.type === 'coop_battle_action') {
+        processCoopBattleAction(data);
+    } else if (data.type === 'coop_sync') {
+        if (data.wheat !== undefined) G.wheat = data.wheat;
+        if (data.level !== undefined && data.level > G.level) {
+            G.level = data.level;
+            G.discovered.utahraptor = true; G.player.dk = 'utahraptor';
+            generateWorld(); spawnWilds(); spawnMega();
+            G.player.x = WS/2*TS; G.player.y = WS/2*TS;
+            G.volcanoTimer = 10800; G.volcanoActive = 0; G.hazards =[];
+            addChatMessage('System', 'Partner defeated Megalodon! Welcome to Map 2!');
+        }
+    }
+}
+
 function hostGame() {
     if(G.peer) return;
 
@@ -228,6 +285,9 @@ function hostGame() {
                 } else if (data.type.startsWith('pvp_')) {
                     if (data.target === 'host') handlePvPMessage(data);
                     else if (G.conns[data.target] && G.conns[data.target].open) G.conns[data.target].send(data);
+                } else if (data.type.startsWith('coop_')) {
+                    if (data.target === 'host') handleCoopMessage(data);
+                    else if (G.conns[data.target] && G.conns[data.target].open) G.conns[data.target].send(data);
                 }
             });
 
@@ -236,6 +296,7 @@ function hostGame() {
                     G.battle.log.unshift("Opponent disconnected!");
                     G.battle.res = 'win';
                 }
+                if (G.coop.partnerId === c.peer) breakCoop("Partner disconnected!");
                 delete G.otherPlayers[c.peer];
                 delete G.conns[c.peer];
                 addChatMessage('System', 'A player left the party.');
@@ -266,11 +327,13 @@ function joinGame(pid) {
                 if (data.type === 'sync') G.otherPlayers = data.players; 
                 else if (data.type === 'chat') addChatMessage(data.sender, data.msg); 
                 else if (data.type.startsWith('pvp_')) handlePvPMessage(data);
+                else if (data.type.startsWith('coop_')) handleCoopMessage(data);
             });
 
             c.on('close', () => {
                 addChatMessage('System', 'Host closed the room.');
                 if (G.state === 'battle' && G.battle.isPvP) G.state = 'world';
+                if (G.coop.partnerId) breakCoop("Host closed the room.");
                 leaveGame(); 
             });
         });
@@ -287,7 +350,8 @@ function startSyncLoop() {
             const myData = {
                 x: G.player.x, y: G.player.y, dk: G.player.dk, 
                 face: G.player.face, anim: G.player.anim, 
-                hat: G.player.hat, oc: G.player.oc, name: G.username
+                hat: G.player.hat, oc: G.player.oc, name: G.username,
+                coopPartner: G.coop.partnerId 
             };
 
             if (G.isHost) {
