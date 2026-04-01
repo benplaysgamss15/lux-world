@@ -52,7 +52,7 @@ function getCol(c, size) {
     return c;
 }
 
-// ── DINO DRAW ──
+// ── DINO & HAT DRAW (Same as before) ──
 function drawDino(key,cx,cy,face,af,sc,alpha,oc){
     const d=DINOS[key];if(!d)return;
     ctx.save();
@@ -60,16 +60,13 @@ function drawDino(key,cx,cy,face,af,sc,alpha,oc){
     ctx.translate(cx,cy);ctx.scale(face,1);
     const s=(sc||1)*(d.sz/20);
     const bob=Math.sin(af*0.18)*2.5;
-
     const cBody = oc && oc.body ? getCol(oc.body, 20*s) : d.col;
     const cLegs = oc && oc.legs ? getCol(oc.legs, 20*s) : d.acc;
     const cHead = oc && oc.head ? getCol(oc.head, 15*s) : d.col;
     const cNeck = oc && oc.neck ? getCol(oc.neck, 15*s) : d.col;
     const cTail = oc && oc.tail ? getCol(oc.tail, 20*s) : d.col;
-
     ctx.fillStyle='rgba(0,0,0,0.18)';ctx.beginPath();
     ctx.ellipse(0,d.sz*s*0.55+2,d.sz*s*0.65,5,0,0,Math.PI*2);ctx.fill();
-
     if(key==='megalodon' || key==='mosasaurus'){
         const isMosa = key==='mosasaurus';
         ctx.fillStyle=cBody;ctx.beginPath();ctx.ellipse(0,bob,(isMosa?40:46)*s,(isMosa?15:22)*s,0.2,0,Math.PI*2);ctx.fill();
@@ -89,11 +86,6 @@ function drawDino(key,cx,cy,face,af,sc,alpha,oc){
         ctx.fillStyle='#000';ctx.beginPath();ctx.arc(31*s,-5*s+bob,2*s,0,Math.PI*2);ctx.fill();
         ctx.fillStyle='#fff';
         for(let i=-3;i<=3;i++){ctx.beginPath();ctx.moveTo(i*8*s,12*s+bob);ctx.lineTo(i*8*s-3.5*s,20*s+bob);ctx.lineTo(i*8*s+3.5*s,20*s+bob);ctx.fill();}
-        if(d.rarity==='Boss'){
-            ctx.shadowColor='#ff3333';ctx.shadowBlur=30;
-            ctx.strokeStyle='rgba(255,50,50,0.4)';ctx.lineWidth=3;ctx.beginPath();
-            ctx.ellipse(0,bob,49*s,25*s,0.2,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
-        }
     } else if(key==='pterodactyl' || key==='quetzalcoatlus'){
         const isQuetz = key==='quetzalcoatlus';
         const flap=Math.sin(af*0.28)*14;
@@ -206,11 +198,9 @@ function drawDino(key,cx,cy,face,af,sc,alpha,oc){
     ctx.restore();
 }
 
-// ── HATS ──
 function drawHat(type, cx, cy, sc){
     const s = sc || 1;
     ctx.save(); ctx.translate(cx, cy);
-
     if (!type || type === 'bucket') {
         ctx.save();ctx.translate(-11*s,-18*s);ctx.rotate(-0.35);
         const hg1=ctx.createLinearGradient(0,-20*s,0,0);hg1.addColorStop(0,'#00ffee');hg1.addColorStop(1,'#009999');
@@ -231,11 +221,6 @@ function drawHat(type, cx, cy, sc){
         for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(i*7*s,-14*s);ctx.lineTo(i*6*s,2*s);ctx.stroke();}
         ctx.fillStyle='#c8a820';ctx.font=`bold ${9*s}px Courier New`;
         ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('AA',-1*s,-8*s);
-        ctx.shadowColor='#00ffdd';ctx.shadowBlur=8*s;
-        ctx.strokeStyle='rgba(0,220,200,0.3)';ctx.lineWidth=1.5*s;
-        ctx.beginPath();ctx.moveTo(-11*s,-18*s);ctx.lineTo(-15*s,-40*s);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(11*s,-18*s);ctx.lineTo(15*s,-40*s);ctx.stroke();
-        ctx.shadowBlur=0;
     } else if (type === 'bacon') {
         ctx.fillStyle = '#cc6600';
         ctx.beginPath(); ctx.ellipse(0, -8*s, 16*s, 10*s, 0, 0, Math.PI*2); ctx.fill();
@@ -292,7 +277,6 @@ function drawHat(type, cx, cy, sc){
     ctx.restore();
 }
 
-// ── PARTICLES ──
 function spawnParticles(x,y,col,n){
     for(let i=0;i<n;i++){
         const a=Math.random()*Math.PI*2,sp=1.5+Math.random()*3;
@@ -353,17 +337,6 @@ function drawWorld(){
                 ctx.beginPath();
                 ctx.arc(px+TS/2, py+TS/2, 8, 0, Math.PI*2);
                 ctx.fill();
-                ctx.strokeStyle = 'rgba(30,5,0,0.7)';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(px+6, py+10+flow*0.5);
-                ctx.lineTo(px+TS*0.6, py+5);
-                ctx.lineTo(px+TS-8, py+TS*0.6-flow*0.5);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(px+10, py+TS-8);
-                ctx.lineTo(px+TS*0.5, py+TS*0.7+flow*0.3);
-                ctx.stroke();
             }
         }
     }
@@ -408,6 +381,15 @@ function drawPlayer(){
     const sx=p.x-G.cam.x, sy=p.y-G.cam.y;
     const asz=10, ay=sy-DINOS[p.dk].sz-32+Math.sin(G.tick*0.08)*4;
     ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(sx,ay);ctx.lineTo(sx-asz,ay-asz);ctx.lineTo(sx+asz,ay-asz);ctx.fill();
+    
+    // NEW CO-OP "BONDED" OVERWORLD TAG
+    if (G.coop.partnerId) {
+        ctx.fillStyle='rgba(40,20,100,0.7)'; ctx.fillRect(sx-60, sy-DINOS[p.dk].sz-50, 120, 16);
+        ctx.fillStyle='#dd88ff'; ctx.font='bold 10px Courier New';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(`Bonded to ${G.coop.partnerName}`, sx, sy-DINOS[p.dk].sz-42);
+    }
+
     drawDino(p.dk,sx,sy,p.face,p.anim,1.25,1, p.oc);
     const headOff=DINOS[p.dk].sz*1.25*0.55;
     const bob=Math.sin(p.anim*0.18)*2.5;
@@ -434,18 +416,6 @@ function drawHUD(){
     ctx.fillStyle='#aaa'; ctx.font='12px Courier New';
     ctx.fillText(`Map: ${G.level===1?'Isla Uno':'Volcano Island'}`, 16, 38);
 
-    if(G.cheatsActive){
-        const pulse = 0.6 + Math.sin(G.tick * 0.12) * 0.4;
-        ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 14;
-        ctx.font = 'bold 18px Courier New';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('⚠ CHEATS ACTIVE ⚠', W / 2, 40);
-        ctx.shadowBlur = 0;
-    }
-
     const d=pDino();
     ctx.fillStyle=RARITY_COLOR[d.rarity];ctx.shadowColor=RARITY_COLOR[d.rarity];ctx.shadowBlur=10;
     ctx.font='bold 15px Courier New';ctx.textAlign='center';
@@ -458,15 +428,6 @@ function drawHUD(){
         hpBar(W-195,30,180,10,G.playerShield,Math.floor(pMaxHp()*0.4),'#44aaff',`SHIELD`);
     }
 
-    btn(W-100, 32, 85, 20, 'Restart', '#aa2222', '#fff', () => {
-        if(confirm("Are you sure you want to restart? All progress will be lost!")) {
-            localStorage.removeItem('dinoworld_save');
-            window.activeSave = null;
-            startGame(true);
-            G.state = 'intro';
-        }
-    }, '🔄');
-
     const isConnected = G.peerId || Object.keys(G.conns).length > 0;
     if (!isConnected) {
         btn(W-100, 56, 40, 20, 'Host', '#8822cc', '#fff', () => showMpModal('host'));
@@ -475,6 +436,16 @@ function drawHUD(){
         btn(W-100, 56, 85, 20, 'Leave Room', '#aa2222', '#fff', leaveGame);
         ctx.fillStyle='#fff'; ctx.font='bold 12px Courier New'; ctx.textAlign='right';
         ctx.fillText(G.peerId ? 'Room: '+G.peerId : 'Connected', W-15, 88);
+    }
+
+    // NEW CO-OP LEAVE BUTTON
+    if (G.coop.partnerId) {
+        btn(16, 56, 110, 20, 'Leave Co-op', '#cc2244', '#fff', () => {
+            if(confirm("Warning: Leaving Co-op will break the party and reset your progress back to Solo Level 1. Continue?")) {
+                sendCoop({ type: 'coop_break', target: G.coop.partnerId });
+                breakCoop("You left the Co-op party.");
+            }
+        }, '💔');
     }
 
     const bw=95,bh=44,gap=10,by=H-58;
@@ -508,36 +479,50 @@ function drawHUD(){
         for(let tx2=0;tx2<WS;tx2+=2){
             const tt=worldMap[ty2][tx2];
             let mmCol='#4a7c3f';
-            if(G.level===2){
-                mmCol=tt===2?'#8a251a':tt===1?'#1f1410':tt===3?'#5a3a2a':tt===4?'#ff2200':'#3d2e25';
-            }else{
-                mmCol=tt===2?'#1a6b8a':tt===1?'#2d5a27':tt===3?'#c8a85a':'#4a7c3f';
-            }
-            ctx.fillStyle=mmCol;
-            ctx.fillRect(mmx+tx2*msc,mmy+ty2*msc,msc*2+0.5,msc*2+0.5);
+            if(G.level===2) mmCol=tt===2?'#8a251a':tt===1?'#1f1410':tt===3?'#5a3a2a':tt===4?'#ff2200':'#3d2e25';
+            else mmCol=tt===2?'#1a6b8a':tt===1?'#2d5a27':tt===3?'#c8a85a':'#4a7c3f';
+            ctx.fillStyle=mmCol; ctx.fillRect(mmx+tx2*msc,mmy+ty2*msc,msc*2+0.5,msc*2+0.5);
         }
     }
     ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(mmx+G.player.x/TS*msc,mmy+G.player.y/TS*msc,3,0,Math.PI*2);ctx.fill();
     for(let id in G.otherPlayers) {
         if(!G.isHost && G.peer && id === G.peer.id) continue;
-        const op = G.otherPlayers[id];
-        if(!op) continue;
-        ctx.fillStyle='#aaddff';
-        ctx.beginPath();ctx.arc(mmx+op.x/TS*msc,mmy+op.y/TS*msc,2.5,0,Math.PI*2);ctx.fill();
+        const op = G.otherPlayers[id]; if(!op) continue;
+        ctx.fillStyle='#aaddff'; ctx.beginPath();ctx.arc(mmx+op.x/TS*msc,mmy+op.y/TS*msc,2.5,0,Math.PI*2);ctx.fill();
     }
     for(const w of G.wilds){
         ctx.fillStyle=w.isBoss?'#ff3333':RARITY_COLOR[DINOS[w.key].rarity];
         ctx.beginPath();ctx.arc(mmx+w.x/TS*msc,mmy+w.y/TS*msc,w.isBoss?3:1.5,0,Math.PI*2);ctx.fill();
     }
-    ctx.fillStyle='rgba(200,200,200,0.6)';ctx.font='8px Courier New';ctx.textAlign='center';ctx.textBaseline='top';
-    ctx.fillText('MAP',mmx+mm/2,mmy-10);
-    if(G.encCd>0){
-        ctx.fillStyle='rgba(255,220,0,0.85)';ctx.font='bold 13px Courier New';ctx.textAlign='center';ctx.textBaseline='bottom';
-        ctx.fillText('⛨ Safe Zone',W/2,H-65);
-    }
-
+    
+    // PVP & CO-OP UI SYSTEM
     if (G.pvp.cd > 0) G.pvp.cd--;
-    if (G.pvp.reqFrom) {
+
+    // 1. Handling Received Co-op Request
+    if (G.coop.reqFrom) {
+        const rw = 280, rh = 80;
+        const rx = 20, ry = H/2 - rh/2;
+        rr(rx, ry, rw, rh, 8, 'rgba(20,20,40,0.95)', '#22ccaa', 2);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Courier New'; ctx.textAlign = 'center';
+        ctx.fillText(G.coop.reqFromName + ' requested Co-op!', rx + rw/2, ry + 25);
+        
+        btn(rx + 20, ry + 45, 110, 26, 'Deny', '#cc2222', '#fff', () => {
+            sendCoop({ type: 'coop_reply', target: G.coop.reqFrom, sender: (G.isHost ? 'host' : G.peer.id), accept: false, name: G.username || 'Player' });
+            G.coop.reqFrom = null;
+        }, '✖');
+        
+        btn(rx + 150, ry + 45, 110, 26, 'Accept', '#22ccaa', '#fff', () => {
+            if(confirm("WARNING: Accepting this Co-op request will completely reset your current Solo Progress back to Level 1. Continue?")) {
+                sendCoop({ type: 'coop_reply', target: G.coop.reqFrom, sender: (G.isHost ? 'host' : G.peer.id), accept: true, name: G.username || 'Player' });
+                bondWithPartner(G.coop.reqFrom, G.coop.reqFromName); 
+            } else {
+                sendCoop({ type: 'coop_reply', target: G.coop.reqFrom, sender: (G.isHost ? 'host' : G.peer.id), accept: false, name: G.username || 'Player' });
+            }
+            G.coop.reqFrom = null;
+        }, '🤝');
+    }
+    // 2. Handling Received PvP Request
+    else if (G.pvp.reqFrom) {
         const rw = 280, rh = 80;
         const rx = W/2 - rw/2, ry = H - 240;
         rr(rx, ry, rw, rh, 8, 'rgba(20,20,40,0.95)', '#8822cc', 2);
@@ -546,8 +531,7 @@ function drawHUD(){
         
         btn(rx + 20, ry + 45, 110, 26, 'Deny', '#cc2222', '#fff', () => {
             sendPvP({ type: 'pvp_reply', target: G.pvp.reqFrom, sender: (G.isHost ? 'host' : G.peer.id), accept: false, name: G.username || 'Player' });
-            G.pvp.reqFrom = null;
-            G.pvp.cd = 1800; 
+            G.pvp.reqFrom = null; G.pvp.cd = 1800; 
         }, '✖');
         
         btn(rx + 150, ry + 45, 110, 26, 'Accept', '#22cc22', '#fff', () => {
@@ -555,20 +539,35 @@ function drawHUD(){
             startPvPBattle(G.pvp.reqFrom, G.pvp.reqFromStats, false); 
             G.pvp.reqFrom = null;
         }, '✔');
-    } else if (G.pvp.closeId && !G.pvp.reqTo && G.encCd <= 0) {
+    } 
+    // 3. Sending Requests
+    else if (G.pvp.closeId && G.encCd <= 0) {
         const op = G.otherPlayers[G.pvp.closeId];
         if (op) {
-            btn(W/2 - 80, H - 150, 160, 36, 'Request PvP', G.pvp.cd > 0 ? '#888888' : '#cc6622', '#fff', () => {
-                if(G.pvp.cd > 0) {
-                    G.pvp.msgTimer = 180; 
-                } else {
-                    G.pvp.reqTo = G.pvp.closeId;
-                    sendPvP({ type: 'pvp_request', target: G.pvp.closeId, sender: (G.isHost ? 'host' : G.peer.id), name: G.username || 'Player', stats: getMyBattleStats() });
-                    addChatMessage('System', 'PvP Request Sent!');
-                }
-            }, '⚔️');
+            // Right Side PvP Button
+            if (!G.coop.partnerId && !G.pvp.reqTo) {
+                btn(W/2 + 20, H - 150, 140, 36, 'PvP Battle', G.pvp.cd > 0 ? '#888888' : '#cc6622', '#fff', () => {
+                    if(G.pvp.cd > 0) G.pvp.msgTimer = 180; 
+                    else {
+                        G.pvp.reqTo = G.pvp.closeId;
+                        sendPvP({ type: 'pvp_request', target: G.pvp.closeId, sender: (G.isHost ? 'host' : G.peer.id), name: G.username || 'Player', stats: getMyBattleStats() });
+                        addChatMessage('System', 'PvP Request Sent!');
+                    }
+                }, '⚔️');
+            }
+            // Left Side Co-op Button
+            if (!G.coop.partnerId && !op.coopPartner && !G.coop.reqTo) {
+                btn(W/2 - 160, H - 150, 140, 36, 'Add Friend', '#22ccaa', '#fff', () => {
+                    if(confirm("WARNING: Sending a Co-op request will permanently reset your Solo Progress if accepted. Continue?")) {
+                        G.coop.reqTo = G.pvp.closeId;
+                        sendCoop({ type: 'coop_request', target: G.pvp.closeId, sender: (G.isHost ? 'host' : G.peer.id), name: G.username || 'Player' });
+                        addChatMessage('System', 'Co-op Request Sent!');
+                    }
+                }, '🤝');
+            }
         }
     }
+
     if (G.pvp.msgTimer > 0) {
         G.pvp.msgTimer--;
         ctx.fillStyle = '#ff4444'; ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
@@ -599,17 +598,6 @@ function drawBattle(){
     ctx.fillStyle=boss?'rgba(100,15,15,0.45)':'rgba(15,50,100,0.4)';
     ctx.beginPath();ctx.ellipse(W/2,H*0.62,W*0.42,H*0.13,0,0,Math.PI*2);ctx.fill();
 
-    if(G.cheatsActive){
-        const pulse = 0.6 + Math.sin(G.tick * 0.12) * 0.4;
-        ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 14;
-        ctx.font = 'bold 18px Courier New';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        ctx.fillText('⚠ CHEATS ACTIVE ⚠', W - 12, 8);
-        ctx.shadowBlur = 0;
-    }
     if(boss){
         ctx.fillStyle='rgba(150,0,0,0.3)';ctx.fillRect(0,0,W,50);
         ctx.strokeStyle='#ff3333';ctx.lineWidth=2;ctx.strokeRect(0,0,W,50);
@@ -618,52 +606,70 @@ function drawBattle(){
         ctx.fillText('⚠ BOSS BATTLE ⚠',W/2,25);ctx.shadowBlur=0;
     }
 
+    // DRAW ENEMY
     const en=DINOS[b.ek];
     const eshake=b.eshake>0?(Math.random()-0.5)*10:0;
     const eScale = boss ? 2.8 : (b.isPvP ? 1.65 : 1.9);
     drawDino(b.ek,W*0.67+eshake,H*0.37,-1,G.tick,eScale,1, b.isPvP ? b.eoc : null);
-    if (b.isPvP) {
-        const epHeadY = H*0.37 - DINOS[b.ek].sz * 1.65 * 0.55;
-        drawHat(b.ehat || 'bucket', W*0.67+eshake, epHeadY, 1.5);
-    }
+    if (b.isPvP) drawHat(b.ehat || 'bucket', W*0.67+eshake, H*0.37 - DINOS[b.ek].sz * 1.65 * 0.55, 1.5);
 
     const ehPct=b.ehp/b.emhp;
     const ehCol=ehPct>0.5?'#44cc44':ehPct>0.25?'#cccc44':'#cc4444';
     hpBar(W*0.46,52,W*0.44,20,b.ehp,b.emhp,ehCol,`${b.ehp}/${b.emhp}`);
-    if (b.isPvP && b.eshield > 0) {
-        hpBar(W*0.46, 76, W*0.44, 10, b.eshield, b.emshield, '#44aaff', 'SHIELD');
-    }
-
+    if (b.isPvP && b.eshield > 0) hpBar(W*0.46, 76, W*0.44, 10, b.eshield, b.emshield, '#44aaff', 'SHIELD');
     ctx.fillStyle=RARITY_COLOR[en.rarity];ctx.font='bold 14px Courier New';ctx.textAlign='left';ctx.textBaseline='middle';
-    if (b.isPvP) {
-        ctx.fillText(`⚔️ ${b.ename}'s ${en.name}`, W*0.46+4, 42);
-    } else {
-        ctx.fillText(`${en.em} ${en.name}`, W*0.46+4, 42);
-    }
+    ctx.fillText(b.isPvP ? `⚔️ ${b.ename}'s ${en.name}` : `${en.em} ${en.name}`, W*0.46+4, 42);
 
-    const pshake=b.pshake>0?(Math.random()-0.5)*8:0;
+    // DRAW PLAYER(S)
     const pDk=G.player.dk;
-    drawDino(pDk,W*0.28+pshake,H*0.52,1,G.tick,1.65,1, G.player.oc);
-    const bpHeadY=H*0.52-DINOS[pDk].sz*1.65*0.55;
-    drawHat(G.player.hat || 'bucket',W*0.28+pshake,bpHeadY,1.5);
+    const pd=pDino();
+    
+    // NEW CO-OP DUAL PLAYER RENDERING
+    if (b.isCoop) {
+        const pshake=b.pshake>0?(Math.random()-0.5)*8:0;
+        const cshake=b.cshake>0?(Math.random()-0.5)*8:0;
 
-    const phPct=b.php/b.pmhp;
-    const phCol=phPct>0.5?'#44cc44':phPct>0.25?'#cccc44':'#cc4444';
-    hpBar(W*0.05,H*0.68,W*0.36,18,b.php,b.pmhp,phCol,`${b.php}/${b.pmhp}`);
-    if (b.php_shield > 0) {
-        hpBar(W*0.05,H*0.68+20,W*0.36,10,b.php_shield,Math.floor(b.pmhp*0.4),'#44aaff',`SHIELD`);
+        // Player 1 (Top Left)
+        drawDino(pDk, W*0.25+pshake, H*0.4, 1, G.tick, 1.4, b.php>0?1:0.3, G.player.oc);
+        drawHat(G.player.hat || 'bucket', W*0.25+pshake, H*0.4-DINOS[pDk].sz*1.4*0.55, 1.3);
+        const phPct=b.php/b.pmhp;
+        hpBar(W*0.02, H*0.5, W*0.3, 14, b.php, b.pmhp, phPct>0.5?'#44cc44':phPct>0.25?'#cccc44':'#cc4444', `${b.php}/${b.pmhp}`);
+        if (b.php_shield > 0) hpBar(W*0.02, H*0.5+16, W*0.3, 8, b.php_shield, b.pmhp_shield, '#44aaff');
+        ctx.fillStyle='#aaffaa'; ctx.font='bold 11px Courier New'; ctx.textAlign='left';
+        ctx.fillText(`P1: ${pd.em} ${pd.name}`, W*0.02, H*0.5-10);
+
+        // Player 2 / Partner (Bottom Left)
+        drawDino(b.cpDk, W*0.25+cshake, H*0.65, 1, G.tick, 1.4, b.cpHp>0?1:0.3, b.cpOc);
+        drawHat(b.cpHat || 'bucket', W*0.25+cshake, H*0.65-DINOS[b.cpDk].sz*1.4*0.55, 1.3);
+        const cpPct=b.cpHp/b.cpMhp;
+        hpBar(W*0.02, H*0.75, W*0.3, 14, b.cpHp, b.cpMhp, cpPct>0.5?'#44cc44':cpPct>0.25?'#cccc44':'#cc4444', `${b.cpHp}/${b.cpMhp}`);
+        if (b.cpShield > 0) hpBar(W*0.02, H*0.75+16, W*0.3, 8, b.cpShield, Math.floor(b.cpMhp*0.4), '#44aaff');
+        ctx.fillStyle='#aaddff'; ctx.font='bold 11px Courier New'; ctx.textAlign='left';
+        ctx.fillText(`P2: ${b.cpName}`, W*0.02, H*0.75-10);
+
+    } else {
+        // Normal Solo Player Rendering
+        const pshake=b.pshake>0?(Math.random()-0.5)*8:0;
+        drawDino(pDk,W*0.28+pshake,H*0.52,1,G.tick,1.65,1, G.player.oc);
+        drawHat(G.player.hat || 'bucket',W*0.28+pshake,H*0.52-DINOS[pDk].sz*1.65*0.55,1.5);
+        const phPct=b.php/b.pmhp;
+        hpBar(W*0.05,H*0.68,W*0.36,18,b.php,b.pmhp,phPct>0.5?'#44cc44':phPct>0.25?'#cccc44':'#cc4444',`${b.php}/${b.pmhp}`);
+        if (b.php_shield > 0) hpBar(W*0.05,H*0.68+20,W*0.36,10,b.php_shield,Math.floor(b.pmhp*0.4),'#44aaff',`SHIELD`);
+        ctx.fillStyle='#aaffaa';ctx.font='bold 13px Courier New';ctx.textAlign='left';ctx.textBaseline='middle';
+        ctx.fillText(`${pd.em} ${pd.name} [YOU]`,W*0.05,H*0.68-14);
     }
 
-    const pd=pDino();
-    ctx.fillStyle='#aaffaa';ctx.font='bold 13px Courier New';ctx.textAlign='left';ctx.textBaseline='middle';
-    ctx.fillText(`${pd.em} ${pd.name} [YOU]`,W*0.05,H*0.68-14);
-    rr(W*0.05,H*0.73,W*0.56,105,8,'rgba(0,0,0,0.8)','rgba(100,130,200,0.3)',1);
+    // Battle Log Display
+    const logY = b.isCoop ? H*0.83 : H*0.73;
+    const logH = b.isCoop ? 85 : 105;
+    rr(W*0.05, logY, W*0.56, logH, 8, 'rgba(0,0,0,0.8)', 'rgba(100,130,200,0.3)', 1);
     b.log.slice(0,4).forEach((line,i)=>{
         ctx.fillStyle=i===0?'#ffffff':`rgba(255,255,255,${0.55-i*0.12})`;
         ctx.font=`${i===0?'bold ':''}12px Courier New`;
         ctx.textAlign='left';ctx.textBaseline='top';
-        ctx.fillText(line,W*0.05+12,H*0.73+10+i*23);
+        ctx.fillText(line,W*0.05+12,logY+10+i*23);
     });
+
     for(const dn of b.dnums){
         ctx.globalAlpha=dn.life/60;
         ctx.fillStyle=dn.col;ctx.font=`bold ${Math.max(10,26-dn.life*0.1)}px Courier New`;
@@ -672,6 +678,7 @@ function drawBattle(){
     }
     ctx.globalAlpha=1;
 
+    // Victory/Defeat Overlays
     if(b.res === 'level2'){
         rr(W/2-165,H/2-70,330,140,12,'rgba(40,0,40,0.92)','#cc44ff',3);
         ctx.fillStyle='#cc44ff';ctx.shadowColor='#cc44ff';ctx.shadowBlur=15;
@@ -680,28 +687,32 @@ function drawBattle(){
         ctx.fillStyle='#ddd';ctx.font='13px Courier New';
         ctx.fillText('The earth shakes... Map 2 Unlocked!',W/2,H/2);
         btn(W/2-85,H/2+25,170,40,'Enter Level 2','#8822cc','#fff',()=>{
-            G.level = 2;
-            G.discovered = {utahraptor: true};
-            G.player.dk = 'utahraptor';
-            generateWorld();
-            spawnWilds();
-            spawnMega();
-            G.player.x = WS/2*TS; G.player.y = WS/2*TS;
-            G.volcanoTimer = 10800;
-            G.volcanoActive = 0; G.hazards =[];
-            G.cam.x = G.player.x - canvas.width/2;
-            G.cam.y = G.player.y - canvas.height/2;
-            exitBattle();
-            G.playerHp = pMaxHp(); // BUG FIX APPLIED HERE
-            G.playerShield = 0;
+            G.level = 2; G.discovered = {utahraptor: true}; G.player.dk = 'utahraptor';
+            generateWorld(); spawnWilds(); spawnMega();
+            G.player.x = WS/2*TS; G.player.y = WS/2*TS; G.volcanoTimer = 10800; G.volcanoActive = 0; G.hazards =[];
+            G.cam.x = G.player.x - canvas.width/2; G.cam.y = G.player.y - canvas.height/2;
+            exitBattle(); G.playerHp = pMaxHp(); G.playerShield = 0;
+            if (G.coop.partnerId) sendCoop({ type: 'coop_sync', level: 2 });
         },'🌋');
     } else if(!b.res){
-        const bx=W*0.65, by=H*0.73;
-        btn(bx,by,130,46,'Attack','#cc2222','#fff',doAttack,'⚔️');
-        btn(bx,by+54,130,46,'Run Away','#224422','#fff',doRun,'🏃');
-        ctx.fillStyle=b.turn==='player'?'#44ff44':'#ff8844';
-        ctx.font='bold 13px Courier New';ctx.textAlign='center';ctx.textBaseline='bottom';
-        ctx.fillText(b.turn==='player'?'▶ Your Turn':'▶ Enemy Turn',bx+65,by-6);
+        const bx=W*0.65, by= b.isCoop ? H*0.83 : H*0.73;
+        
+        // Co-op Turn Waiting Check
+        if (b.isCoop && b.turn === 'partner') {
+            ctx.fillStyle='#aaddff'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(`⏳ Waiting for ${b.cpName}...`, bx + 65, by + 20);
+        } else if (b.isCoop && b.turn === 'enemy') {
+            ctx.fillStyle='#ff8844'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(`▶ Enemy Turn...`, bx + 65, by + 20);
+        } else {
+            // Local Player Turn
+            btn(bx,by,130,46,'Attack','#cc2222','#fff',doAttack,'⚔️');
+            if(!b.isCoop) btn(bx,by+54,130,46,'Run Away','#224422','#fff',doRun,'🏃');
+            
+            ctx.fillStyle='#44ff44';
+            ctx.font='bold 13px Courier New';ctx.textAlign='center';ctx.textBaseline='bottom';
+            ctx.fillText('▶ Your Turn',bx+65,by-6);
+        }
     } else {
         const win=b.res==='win';
         rr(W/2-165,H/2-70,330,140,12,win?'rgba(0,80,0,0.92)':'rgba(80,0,0,0.92)',win?'#44ff44':'#ff4444',3);
@@ -714,10 +725,9 @@ function drawBattle(){
     }
 }
 
-// ── INDEX ──
-function drawIndex(){
-    G.btns=[];
-    const W=canvas.width,H=canvas.height;
+// ── REMAINDER OF UI FILES (INDEX, SHOP, CUSTOMIZE, INTRO) ──
+function drawIndex(){ /* Same as Phase 1 */
+    G.btns=[]; const W=canvas.width,H=canvas.height;
     ctx.fillStyle='#070d1a';ctx.fillRect(0,0,W,H);
     for(let i=0;i<60;i++){
         ctx.fillStyle=`rgba(255,255,255,${0.1+((i*31)%10)*0.04})`;
@@ -743,9 +753,7 @@ function drawIndex(){
         const col=(i-si)%cols, row=Math.floor((i-si)/cols);
         const cx=15+col*cw+cw/2, cy=68+row*130+62;
         const found=G.discovered[key], isCur=G.player.dk===key;
-        rr(cx-cw/2+4,cy-58,cw-8,124,10,
-        isCur?'rgba(20,60,20,0.95)':found?'rgba(12,25,55,0.9)':'rgba(8,12,25,0.7)',
-        isCur?'#44ff44':found?RARITY_COLOR[dn.rarity]:'#282838',2);
+        rr(cx-cw/2+4,cy-58,cw-8,124,10,isCur?'rgba(20,60,20,0.95)':found?'rgba(12,25,55,0.9)':'rgba(8,12,25,0.7)',isCur?'#44ff44':found?RARITY_COLOR[dn.rarity]:'#282838',2);
         
         if(found){
             ctx.save();ctx.beginPath();ctx.rect(cx-cw/2+6,cy-55,cw-12,80);ctx.clip();
@@ -762,23 +770,15 @@ function drawIndex(){
             ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(cx-28,cy+45,56,13);
             ctx.fillStyle=RARITY_COLOR[dn.rarity];ctx.font='8px Courier New';ctx.fillText(dn.rarity,cx,cy+58);
             if(!isCur) btn(cx-32,cy+61,64,22,'Equip','#1a3a88','#fff',()=>{
-                if(G.swapCd>0) {
-                    addChatMessage('System', `Cooldown! Wait 2s to switch.`);
-                    return;
-                }
+                if(G.swapCd>0) return;
                 const oldHpPct = Math.min(1, G.playerHp / pMaxHp());
                 G.player.dk=key;
                 G.playerHp = Math.max(1, Math.floor(pMaxHp() * oldHpPct));
                 G.playerShield = Math.min(G.playerShield, Math.floor(pMaxHp() * 0.4));
                 G.swapCd = 120; 
-                const ttx = Math.floor(G.player.x/TS);
-                const tty = Math.floor(G.player.y/TS);
+                const ttx = Math.floor(G.player.x/TS); const tty = Math.floor(G.player.y/TS);
                 const canSwim =['spinosaurus','pterodactyl','megalodon','mosasaurus'].includes(key);
-                if(worldMap[tty] && worldMap[tty][ttx] === 2 && !canSwim){
-                    G.player.x = WS/2*TS;
-                    G.player.y = WS/2*TS;
-                }
-                addChatMessage('System', `Equipped ${DINOS[key].name}!`);
+                if(worldMap[tty] && worldMap[tty][ttx] === 2 && !canSwim){ G.player.x = WS/2*TS; G.player.y = WS/2*TS; }
             });
             else{ctx.fillStyle='#44ff44';ctx.font='bold 9px Courier New';ctx.textBaseline='middle';ctx.fillText('✓ ACTIVE',cx,cy+72);}
         }
@@ -793,14 +793,10 @@ function drawIndex(){
     btn(W-86,8,78,34,'✕ Close','#4a2010','#fff',()=>{G.state='world';G.btns=[];});
 }
 
-// ── SHOP ──
-function drawShop(){
-    G.btns=[];
-    const W=canvas.width,H=canvas.height;
+function drawShop(){ /* Same as Phase 1 */
+    G.btns=[]; const W=canvas.width,H=canvas.height;
     ctx.fillStyle='#0a0602';ctx.fillRect(0,0,W,H);
-    for(let i=0;i<W;i+=60){
-        ctx.strokeStyle='rgba(200,150,0,0.03)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();
-    }
+    for(let i=0;i<W;i+=60){ ctx.strokeStyle='rgba(200,150,0,0.03)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke(); }
     ctx.fillStyle='rgba(60,30,0,0.95)';ctx.fillRect(0,0,W,52);
     ctx.strokeStyle='rgba(255,200,0,0.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,52);ctx.lineTo(W,52);ctx.stroke();
     ctx.fillStyle='#ffd700';ctx.shadowColor='#ffaa00';ctx.shadowBlur=12;
@@ -814,234 +810,110 @@ function drawShop(){
         {k:'atk',label:'Atk Power', desc:'+5 Attack', icon:'⚔️', base:30,col:'#aa6622', max:30},
         {k:'spd',label:'Speed Up', desc:'+0.5 Speed', icon:'⚡', base:20,col:'#2244aa', max:25}
     ];
-    const cw2=Math.min(240,Math.floor((W-60)/3));
-    const ch=240;
-    const tw=upgs.length*cw2+(upgs.length-1)*18;
-    const sx2=(W-tw)/2;
+    const cw2=Math.min(240,Math.floor((W-60)/3)); const ch=240;
+    const tw=upgs.length*cw2+(upgs.length-1)*18; const sx2=(W-tw)/2;
 
     upgs.forEach((upg,i)=>{
-        const lv=G.player.upg[upg.k];
-        const maxLv=upg.max;
-        const maxed=lv>=maxLv;
-        const cost=upg.base+lv*15;
-        const can=!maxed&&G.wheat>=cost;
+        const lv=G.player.upg[upg.k]; const maxLv=upg.max; const maxed=lv>=maxLv; const cost=upg.base+lv*15; const can=!maxed&&G.wheat>=cost;
         const x=sx2+i*(cw2+18), y=65;
         rr(x,y,cw2,ch,12,'rgba(18,10,4,0.97)',maxed?'#886600':can?upg.col:'#2a2020',2);
         ctx.font='36px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(upg.icon,x+cw2/2,y+14);
         ctx.fillStyle='#fff';ctx.font='bold 15px Courier New';ctx.textBaseline='top';ctx.fillText(upg.label,x+cw2/2,y+62);
-        ctx.fillStyle=maxed?'#ffaa00':'#ffd700';ctx.font='bold 13px Courier New';
-        ctx.fillText(maxed?`Lv ${lv} ✓`:`Lv ${lv}`,x+cw2/2,y+83);
+        ctx.fillStyle=maxed?'#ffaa00':'#ffd700';ctx.font='bold 13px Courier New'; ctx.fillText(maxed?`Lv ${lv} ✓`:`Lv ${lv}`,x+cw2/2,y+83);
         ctx.fillStyle='#aaa';ctx.font='11px Courier New';ctx.fillText(upg.desc,x+cw2/2,y+104);
-        
-        if(maxed){
-            ctx.fillStyle='#ffaa00';ctx.font='bold 13px Courier New';ctx.fillText('MAX UPGRADE',x+cw2/2,y+126);
-        } else {
-            ctx.fillStyle=can?'#aaddff':'#664422';ctx.font='bold 13px Courier New';ctx.fillText(`Cost: 🪣 ${cost}`,x+cw2/2,y+126);
-        }
-        
-        btn(x+16,y+154,cw2-32,42,maxed?'MAX UPGRADE':'UPGRADE',
-        maxed?'#553300':can?upg.col:'#2a2020', maxed?'#ffaa00':can?'#fff':'#665', ()=>{
-            if(!maxed&&G.wheat>=cost){
-                G.wheat-=cost;G.player.upg[upg.k]++;
-                if(upg.k==='hp') G.playerHp += Math.floor(28 * R_MULT[pDino().rarity]);
-                spawnParticles(x+cw2/2,y+175,'#55ccff',10);
-            }
+        if(maxed) { ctx.fillStyle='#ffaa00';ctx.font='bold 13px Courier New';ctx.fillText('MAX UPGRADE',x+cw2/2,y+126); } 
+        else { ctx.fillStyle=can?'#aaddff':'#664422';ctx.font='bold 13px Courier New';ctx.fillText(`Cost: 🪣 ${cost}`,x+cw2/2,y+126); }
+        btn(x+16,y+154,cw2-32,42,maxed?'MAX UPGRADE':'UPGRADE', maxed?'#553300':can?upg.col:'#2a2020', maxed?'#ffaa00':can?'#fff':'#665', ()=>{
+            if(!maxed&&G.wheat>=cost){ G.wheat-=cost;G.player.upg[upg.k]++; if(upg.k==='hp') G.playerHp += Math.floor(28 * R_MULT[pDino().rarity]); spawnParticles(x+cw2/2,y+175,'#55ccff',10); }
         });
-
         ctx.fillStyle='#111'; ctx.fillRect(x+16, y+ch-20, cw2-32, 10);
         ctx.fillStyle=upg.col; ctx.fillRect(x+16, y+ch-20, Math.max(0, (cw2-32)*(lv/maxLv)), 10);
     });
 
-    const hy=65+ch+20;
-    const hw=Math.min(420,W-60), hx=(W-hw)/2;
-    const hhw = (hw - 10)/2;
-
-    const scost = 40;
-    const scan = G.wheat>=scost && G.playerShield < Math.floor(pMaxHp()*0.4);
+    const hy=65+ch+20; const hw=Math.min(420,W-60), hx=(W-hw)/2; const hhw = (hw - 10)/2;
+    const scost = 40; const scan = G.wheat>=scost && G.playerShield < Math.floor(pMaxHp()*0.4);
     rr(hx,hy,hhw,80,10,'rgba(0,30,50,0.95)',scan?'#44aaff':'#1a2a3a',2);
-    ctx.font='24px sans-serif';ctx.fillText('🛡️',hx+hhw/2,hy+10);
-    ctx.fillStyle='#aaddff';ctx.font='bold 14px Courier New';ctx.fillText('+15% Shield',hx+hhw/2,hy+42);
-    ctx.fillText(`Cost: 🪣 ${scost}`,hx+hhw/2,hy+60);
-    btn(hx,hy,hhw,80,'',scan?'rgba(0,0,0,0.01)':'rgba(0,0,0,0.01)','rgba(0,0,0,0)',()=>{
-        const maxS = Math.floor(pMaxHp()*0.4); const addS = Math.floor(pMaxHp()*0.15);
-        if(G.wheat>=scost && G.playerShield < maxS){G.wheat-=scost;G.playerShield=Math.min(maxS, G.playerShield+addS);spawnParticles(W/2,H/2,'#44aaff',14);}
-    });
+    ctx.font='24px sans-serif';ctx.fillText('🛡️',hx+hhw/2,hy+10); ctx.fillStyle='#aaddff';ctx.font='bold 14px Courier New';ctx.fillText('+15% Shield',hx+hhw/2,hy+42); ctx.fillText(`Cost: 🪣 ${scost}`,hx+hhw/2,hy+60);
+    btn(hx,hy,hhw,80,'',scan?'rgba(0,0,0,0.01)':'rgba(0,0,0,0.01)','rgba(0,0,0,0)',()=>{ const maxS = Math.floor(pMaxHp()*0.4); const addS = Math.floor(pMaxHp()*0.15); if(G.wheat>=scost && G.playerShield < maxS){G.wheat-=scost;G.playerShield=Math.min(maxS, G.playerShield+addS);spawnParticles(W/2,H/2,'#44aaff',14);} });
 
-    const hcost = 5;
-    const hcan = G.wheat>=hcost && G.playerHp < pMaxHp();
+    const hcost = 5; const hcan = G.wheat>=hcost && G.playerHp < pMaxHp();
     rr(hx+hhw+10,hy,hhw,80,10,'rgba(0,30,0,0.95)',hcan?'#44aa44':'#1a2a1a',2);
-    ctx.font='24px sans-serif';ctx.fillText('💊',hx+hhw+10+hhw/2,hy+10);
-    ctx.fillStyle='#aaffaa';ctx.font='bold 14px Courier New';ctx.fillText('+10% Heal',hx+hhw+10+hhw/2,hy+42);
-    ctx.fillText(`Cost: 🪣 ${hcost}`,hx+hhw+10+hhw/2,hy+60);
-    btn(hx+hhw+10,hy,hhw,80,'',hcan?'rgba(0,0,0,0.01)':'rgba(0,0,0,0.01)','rgba(0,0,0,0)',()=>{
-        if(G.wheat>=hcost && G.playerHp < pMaxHp()){G.wheat-=hcost;G.playerHp=Math.min(pMaxHp(), G.playerHp + Math.floor(pMaxHp()*0.1));spawnParticles(W/2,H/2,'#44ff44',14);}
-    });
+    ctx.font='24px sans-serif';ctx.fillText('💊',hx+hhw+10+hhw/2,hy+10); ctx.fillStyle='#aaffaa';ctx.font='bold 14px Courier New';ctx.fillText('+10% Heal',hx+hhw+10+hhw/2,hy+42); ctx.fillText(`Cost: 🪣 ${hcost}`,hx+hhw+10+hhw/2,hy+60);
+    btn(hx+hhw+10,hy,hhw,80,'',hcan?'rgba(0,0,0,0.01)':'rgba(0,0,0,0.01)','rgba(0,0,0,0)',()=>{ if(G.wheat>=hcost && G.playerHp < pMaxHp()){G.wheat-=hcost;G.playerHp=Math.min(pMaxHp(), G.playerHp + Math.floor(pMaxHp()*0.1));spawnParticles(W/2,H/2,'#44ff44',14);} });
 
-    const custY = hy + 90;
-    const custW = Math.min(320, W-60);
-    const custX = (W - custW) / 2;
-    btn(custX, custY, custW, 50, 'customize ur avatar here', '#cc5522', '#fff', () => {
-        G.state = 'customize'; G.btns =[];
-    }, '🧢');
-
+    const custY = hy + 90; const custW = Math.min(320, W-60); const custX = (W - custW) / 2;
+    btn(custX, custY, custW, 50, 'customize ur avatar here', '#cc5522', '#fff', () => { G.state = 'customize'; G.btns =[]; }, '🧢');
     btn(W-86,8,78,34,'✕ Close','#4a2010','#fff',()=>{G.state='world';G.btns=[];});
 }
 
-// ── CUSTOMIZE ──
-function drawCustomize(){
-    G.btns=[];
-    const W=canvas.width,H=canvas.height;
+function drawCustomize(){ /* Same as Phase 1 */
+    G.btns=[]; const W=canvas.width,H=canvas.height;
     ctx.fillStyle='#0a0602';ctx.fillRect(0,0,W,H);
-    for(let i=0;i<W;i+=60){
-        ctx.strokeStyle='rgba(150,50,255,0.03)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();
-    }
+    for(let i=0;i<W;i+=60){ ctx.strokeStyle='rgba(150,50,255,0.03)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke(); }
     ctx.fillStyle='rgba(40,10,80,0.95)';ctx.fillRect(0,0,W,52);
     ctx.strokeStyle='rgba(200,100,255,0.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,52);ctx.lineTo(W,52);ctx.stroke();
-    ctx.fillStyle='#dd88ff';ctx.shadowColor='#aa44ff';ctx.shadowBlur=12;
-    ctx.font='bold 24px Courier New';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('🧢 AVATAR CUSTOMIZATION',W/2,26);ctx.shadowBlur=0;
+    ctx.fillStyle='#dd88ff';ctx.shadowColor='#aa44ff';ctx.shadowBlur=12; ctx.font='bold 24px Courier New';ctx.textAlign='center';ctx.textBaseline='middle'; ctx.fillText('🧢 AVATAR CUSTOMIZATION',W/2,26);ctx.shadowBlur=0;
 
-    const hats =[
-        { id: 'bucket', name: 'Cyber Bucket' },
-        { id: 'bacon', name: 'Bacon Hair' },
-        { id: 'dino_hood', name: 'Dino Hood' },
-        { id: 'smiley', name: 'Smiley Bucket' }
-    ];
-
-    const px = W/2;
-    const py = 180;
-    const pDk = G.player.dk;
+    const px = W/2; const py = 180; const pDk = G.player.dk;
     drawDino(pDk, px, py, 1, G.tick, 2.5, 1, G.player.oc);
-    const headOff = DINOS[pDk].sz * 2.5 * 0.55;
-    const bob = Math.sin(G.tick * 0.18) * 2.5;
+    const headOff = DINOS[pDk].sz * 2.5 * 0.55; const bob = Math.sin(G.tick * 0.18) * 2.5;
     drawHat(G.player.hat || 'bucket', px, py - headOff + bob - 2, 2.2);
 
-    const cw = Math.min(160, (W-40)/2);
-    const ch = 100;
-    const sx = W/2 - cw - 10;
-    const sy = 280;
+    const hats =[{ id: 'bucket', name: 'Cyber Bucket' },{ id: 'bacon', name: 'Bacon Hair' },{ id: 'dino_hood', name: 'Dino Hood' },{ id: 'smiley', name: 'Smiley Bucket' }];
+    const cw = Math.min(160, (W-40)/2); const ch = 100; const sx = W/2 - cw - 10; const sy = 280;
 
     hats.forEach((h, i) => {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        const x = sx + col * (cw + 20);
-        const y = sy + row * (ch + 15);
-
+        const col = i % 2; const row = Math.floor(i / 2); const x = sx + col * (cw + 20); const y = sy + row * (ch + 15);
         const isEq = (G.player.hat || 'bucket') === h.id;
         rr(x, y, cw, ch, 10, isEq ? 'rgba(80,20,120,0.9)' : 'rgba(20,10,30,0.9)', isEq ? '#dd88ff' : '#442266', 2);
         drawHat(h.id, x + cw/2, y + 40, 1.6);
-        ctx.fillStyle = isEq ? '#dd88ff' : '#ccc';
-        ctx.font = 'bold 12px Courier New';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(h.name, x + cw/2, y + 70);
-
-        if(!isEq) {
-            btn(x + 20, y + 80, cw - 40, 15, 'Equip', '#5522aa', '#fff', () => { G.player.hat = h.id; });
-        } else {
-            ctx.fillStyle = '#44ff44';
-            ctx.font = 'bold 11px Courier New';
-            ctx.fillText('✓ EQUIPPED', x + cw/2, y + 88);
-        }
+        ctx.fillStyle = isEq ? '#dd88ff' : '#ccc'; ctx.font = 'bold 12px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(h.name, x + cw/2, y + 70);
+        if(!isEq) { btn(x + 20, y + 80, cw - 40, 15, 'Equip', '#5522aa', '#fff', () => { G.player.hat = h.id; }); } 
+        else { ctx.fillStyle = '#44ff44'; ctx.font = 'bold 11px Courier New'; ctx.fillText('✓ EQUIPPED', x + cw/2, y + 88); }
     });
 
-    const parts =['body', 'head', 'legs', 'neck', 'tail'];
-    if(!G.custPart) G.custPart = 'body';
-
-    const CUST_COLS =[
-        '#40c4ff', '#ff4040', '#40ff40', '#c440ff', '#aaaaaa', '#ffaa00', 
-        '#ffffff', '#111111', 'grad:#00ffee:#009999', 'grad:#ff0055:#880022', 
-        'grad:#5cd65c:#2eb82e', 'grad:#dd88ff:#5522aa'
-    ];
-
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Courier New';
-    ctx.fillText('Select Limb:', W/2, sy + 2*(ch+15));
-    parts.forEach((pt, i) => {
-        const pxx = W/2 - 165 + i*66;
-        const isSel = G.custPart === pt;
-        btn(pxx, sy + 2*(ch+15) + 15, 60, 26, pt, isSel ? '#8822cc' : '#333', '#fff', () => G.custPart = pt);
-    });
+    const parts =['body', 'head', 'legs', 'neck', 'tail']; if(!G.custPart) G.custPart = 'body';
+    const CUST_COLS =['#40c4ff', '#ff4040', '#40ff40', '#c440ff', '#aaaaaa', '#ffaa00', '#ffffff', '#111111', 'grad:#00ffee:#009999', 'grad:#ff0055:#880022', 'grad:#5cd65c:#2eb82e', 'grad:#dd88ff:#5522aa'];
+    
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Courier New'; ctx.fillText('Select Limb:', W/2, sy + 2*(ch+15));
+    parts.forEach((pt, i) => { const pxx = W/2 - 165 + i*66; const isSel = G.custPart === pt; btn(pxx, sy + 2*(ch+15) + 15, 60, 26, pt, isSel ? '#8822cc' : '#333', '#fff', () => G.custPart = pt); });
 
     const colsY = sy + 2*(ch + 15) + 70;
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Courier New';
-    ctx.fillText('Select Color:', W/2, colsY - 15);
-
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Courier New'; ctx.fillText('Select Color:', W/2, colsY - 15);
     CUST_COLS.forEach((col, i) => {
-        const rx = W/2 - 165 + (i%6)*55;
-        const ry = colsY + Math.floor(i/6)*50;
-        ctx.fillStyle = getCol(col, 18);
-        ctx.beginPath(); ctx.arc(rx+25, ry+20, 18, 0, Math.PI*2); ctx.fill();
-        if (G.player.oc[G.custPart] === col) {
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
-        }
-        btn(rx+5, ry, 40, 40, '', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', () => {
-            G.player.oc[G.custPart] = col;
-        });
+        const rx = W/2 - 165 + (i%6)*55; const ry = colsY + Math.floor(i/6)*50;
+        ctx.fillStyle = getCol(col, 18); ctx.beginPath(); ctx.arc(rx+25, ry+20, 18, 0, Math.PI*2); ctx.fill();
+        if (G.player.oc[G.custPart] === col) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke(); }
+        btn(rx+5, ry, 40, 40, '', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', () => { G.player.oc[G.custPart] = col; });
     });
 
     btn(W-86,8,78,34,'✕ Close','#4a2010','#fff',()=>{G.state='world';G.btns=[];});
 }
 
-// ── INTRO ──
-function drawIntro(){
-    G.btns=[];
-    const W=canvas.width,H=canvas.height;
+function drawIntro(){ /* Same as Phase 1 */
+    G.btns=[]; const W=canvas.width,H=canvas.height;
     ctx.fillStyle='#03080f';ctx.fillRect(0,0,W,H);
-    for(let i=0;i<180;i++){
-        const brt=0.3+((i*31+G.tick*0.2)%1)*0.5;
-        ctx.fillStyle=`rgba(255,255,255,${brt*0.65})`;
-        ctx.beginPath();ctx.arc((i*137+i*i)%W,(i*89+i*31)%H,0.8,0,Math.PI*2);ctx.fill();
-    }
-    const mp=G.tick%300;
-    if(mp<60){
-        ctx.strokeStyle=`rgba(255,200,100,${(60-mp)/60*0.8})`;ctx.lineWidth=2;ctx.beginPath();
-        ctx.moveTo(mp*8,mp*2);ctx.lineTo(mp*8-30,mp*2-10);ctx.stroke();
-    }
+    for(let i=0;i<180;i++){ const brt=0.3+((i*31+G.tick*0.2)%1)*0.5; ctx.fillStyle=`rgba(255,255,255,${brt*0.65})`; ctx.beginPath();ctx.arc((i*137+i*i)%W,(i*89+i*31)%H,0.8,0,Math.PI*2);ctx.fill(); }
+    const mp=G.tick%300; if(mp<60){ ctx.strokeStyle=`rgba(255,200,100,${(60-mp)/60*0.8})`;ctx.lineWidth=2;ctx.beginPath(); ctx.moveTo(mp*8,mp*2);ctx.lineTo(mp*8-30,mp*2-10);ctx.stroke(); }
     ctx.fillStyle='rgba(0,80,20,0.12)';ctx.beginPath();ctx.ellipse(W/2,H*0.35,320,80,0,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#7ab648';ctx.shadowColor='#3a7a18';ctx.shadowBlur=60;
-    ctx.font=`bold ${Math.min(62,W*0.065)}px Courier New`;ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('🦖 DinoWorld',W/2,H*0.3);ctx.shadowBlur=0;
-    ctx.fillStyle='rgba(150,200,120,0.85)';ctx.font=`${Math.min(18,W*0.018)}px Courier New`;
-    ctx.fillText('Open-World Survival Index',W/2,H*0.3+52);
+    ctx.fillStyle='#7ab648';ctx.shadowColor='#3a7a18';ctx.shadowBlur=60; ctx.font=`bold ${Math.min(62,W*0.065)}px Courier New`;ctx.textAlign='center';ctx.textBaseline='middle'; ctx.fillText('🦖 DinoWorld',W/2,H*0.3);ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(150,200,120,0.85)';ctx.font=`${Math.min(18,W*0.018)}px Courier New`; ctx.fillText('Open-World Survival Index',W/2,H*0.3+52);
     
     const feats=['🪣 Collect Buckets','📘 Dino Index','🌋 2 Huge Maps','🦈 Boss Raids','🛒 Upgrade Shop'];
-    feats.forEach((f,i)=>{
-        const fx=W/2+(i-2)*Math.min(158,W/6.2), fy=H*0.5;
-        rr(fx-54,fy-14,108,28,6,'rgba(255,255,255,0.06)','rgba(255,255,255,0.14)',1);
-        ctx.fillStyle='rgba(255,255,255,0.75)';ctx.font='11px Courier New';ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillText(f,fx,fy);
-    });
+    feats.forEach((f,i)=>{ const fx=W/2+(i-2)*Math.min(158,W/6.2), fy=H*0.5; rr(fx-54,fy-14,108,28,6,'rgba(255,255,255,0.06)','rgba(255,255,255,0.14)',1); ctx.fillStyle='rgba(255,255,255,0.75)';ctx.font='11px Courier New';ctx.textAlign='center';ctx.textBaseline='middle'; ctx.fillText(f,fx,fy); });
     
-    drawDino('raptor',W*0.22,H*0.7,1,G.tick,2.2,1, G.player?.oc);
-    drawHat(G.player?.hat || 'bucket',W*0.22,H*0.7-DINOS.raptor.sz*2.2*0.55,2.0);
-    drawDino('trex',W*0.78,H*0.7,-1,G.tick,2.2,1);
-    if(W>700) drawDino('pterodactyl',W*0.5,H*0.65,1,G.tick,1.8,0.8);
+    drawDino('raptor',W*0.22,H*0.7,1,G.tick,2.2,1, G.player?.oc); drawHat(G.player?.hat || 'bucket',W*0.22,H*0.7-DINOS.raptor.sz*2.2*0.55,2.0);
+    drawDino('trex',W*0.78,H*0.7,-1,G.tick,2.2,1); if(W>700) drawDino('pterodactyl',W*0.5,H*0.65,1,G.tick,1.8,0.8);
     
-    const iby = H*0.78;
-    rr(W/2-160,iby,320,56,8,'rgba(0,0,0,0.6)','rgba(255,255,255,0.1)',1);
-    ctx.fillStyle='rgba(180,220,255,0.8)';ctx.font='12px Courier New';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('WASD / Arrow Keys to move • Touch joystick on mobile',W/2,iby+18);
-    ctx.fillStyle='rgba(150,200,150,0.7)';ctx.font='11px Courier New';
-    ctx.fillText('Walk into wild dinos to battle • Defeat them to collect!',W/2,iby+38);
+    const iby = H*0.78; rr(W/2-160,iby,320,56,8,'rgba(0,0,0,0.6)','rgba(255,255,255,0.1)',1);
+    ctx.fillStyle='rgba(180,220,255,0.8)';ctx.font='12px Courier New';ctx.textAlign='center';ctx.textBaseline='middle'; ctx.fillText('WASD / Arrow Keys to move • Touch joystick on mobile',W/2,iby+18);
+    ctx.fillStyle='rgba(150,200,150,0.7)';ctx.font='11px Courier New'; ctx.fillText('Walk into wild dinos to battle • Defeat them to collect!',W/2,iby+38);
     
     if (window.activeSave) {
-        const sy = Math.max(iby + 65, H*0.85);
-        ctx.fillStyle='#44ff44';ctx.shadowColor='#00ff00';ctx.shadowBlur=8;
-        ctx.font=`bold ${Math.min(16,W*0.04)}px Courier New`;
-        ctx.fillText('Your recent data was saved!',W/2,sy);
-        ctx.fillStyle='#aaffaa'; ctx.shadowBlur=0;
-        ctx.font=`${Math.min(12,W*0.03)}px Courier New`;
-        ctx.fillText('You can continue where you started.',W/2,sy+18);
+        const sy = Math.max(iby + 65, H*0.85); ctx.fillStyle='#44ff44';ctx.shadowColor='#00ff00';ctx.shadowBlur=8; ctx.font=`bold ${Math.min(16,W*0.04)}px Courier New`; ctx.fillText('Your recent data was saved!',W/2,sy); ctx.fillStyle='#aaffaa'; ctx.shadowBlur=0; ctx.font=`${Math.min(12,W*0.03)}px Courier New`; ctx.fillText('You can continue where you started.',W/2,sy+18);
         btn(W/2-110, sy+28, 100, 32, 'Continue', '#228822', '#fff', () => startGame(false), '▶');
-        btn(W/2+10, sy+28, 100, 32, 'Restart', '#cc2222', '#fff', () => {
-            localStorage.removeItem('dinoworld_save');
-            window.activeSave = null;
-            startGame(true);
-        }, '🔄');
+        btn(W/2+10, sy+28, 100, 32, 'Restart', '#cc2222', '#fff', () => { localStorage.removeItem('dinoworld_save'); window.activeSave = null; startGame(true); }, '🔄');
     } else {
-        if(Math.floor(G.tick/28)%2){
-            ctx.fillStyle='rgba(255,220,80,0.95)';ctx.shadowColor='#ffaa00';ctx.shadowBlur=12;
-            ctx.font=`bold ${Math.min(20,W*0.02)}px Courier New`;
-            ctx.fillText('[ Click or Press Any Key to Start ]',W/2,Math.max(iby + 75, H*0.9));ctx.shadowBlur=0;
-        }
+        if(Math.floor(G.tick/28)%2){ ctx.fillStyle='rgba(255,220,80,0.95)';ctx.shadowColor='#ffaa00';ctx.shadowBlur=12; ctx.font=`bold ${Math.min(20,W*0.02)}px Courier New`; ctx.fillText('[ Click or Press Any Key to Start ]',W/2,Math.max(iby + 75, H*0.9));ctx.shadowBlur=0; }
     }
 }
