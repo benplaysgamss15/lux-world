@@ -81,8 +81,15 @@ const G = {
     lastDamageTick: 0,
     discovered:{raptor:true},
     wilds:[],
-    battle:{isPvP:false, opId:null, ek:null, ehp:0, emhp:0, eshield:0, emshield:0, ename:'', eoc:null, ehat:'', php:0, pmhp:0, php_shield:0, pmhp_shield:0, turn:'player', log:[], anim:false, res:null, eshake:0, pshake:0, dnums:[]},
+    
+    // Updated Battle State to include Co-op Partner variables
+    battle:{isPvP:false, isCoop:false, opId:null, ek:null, ehp:0, emhp:0, eatk:0, eshield:0, emshield:0, ename:'', eoc:null, ehat:'', php:0, pmhp:0, php_shield:0, pmhp_shield:0, cpHp:0, cpMhp:0, cpShield:0, cpDk:'raptor', cpName:'', cpOc:null, cpHat:'bucket', turn:'player', log:[], anim:false, res:null, eshake:0, pshake:0, cshake:0, dnums:[]},
+    
     pvp: { closeId: null, reqTo: null, reqFrom: null, reqFromName: '', reqFromStats: null, cd: 0, msgTimer: 0, opponentId: null },
+    
+    // NEW CO-OP STATE
+    coop: { partnerId: null, partnerName: '', reqTo: null, reqFrom: null, reqFromName: '' },
+
     keys:{},
     joy:{on:false,sx:0,sy:0,dx:0,dy:0},
     btns:[],
@@ -113,7 +120,14 @@ const G = {
 let syncInterval = null;
 let chatFadeTimer = null;
 
+// The Co-op Modifiers (0.9x HP/ATK if bonded)
 function pDino(){ return DINOS[G.player.dk]; }
-function pMaxHp(){ return Math.floor((pDino().hp + G.player.upg.hp*28) * R_MULT[pDino().rarity]); }
-function pAtk(){ return Math.floor((pDino().atk + G.player.upg.atk*5) * R_MULT[pDino().rarity]); }
+function pMaxHp(){ 
+    let m = Math.floor((pDino().hp + G.player.upg.hp*28) * R_MULT[pDino().rarity]); 
+    return G.coop.partnerId ? Math.floor(m * 0.9) : m;
+}
+function pAtk(){ 
+    let a = Math.floor((pDino().atk + G.player.upg.atk*5) * R_MULT[pDino().rarity]); 
+    return G.coop.partnerId ? Math.floor(a * 0.9) : a;
+}
 function pSpd(){ return pDino().spd + G.player.upg.spd*0.5; }
