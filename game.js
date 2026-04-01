@@ -3,11 +3,7 @@ window.activeSave = null;
 function loadSaveData() {
     try {
         const s = localStorage.getItem('dinoworld_save');
-        if (s) {
-            const data = JSON.parse(s);
-            if (Date.now() - data.ts < 24 * 60 * 60 * 1000) window.activeSave = data;
-            else localStorage.removeItem('dinoworld_save');
-        }
+        if (s) { const data = JSON.parse(s); if (Date.now() - data.ts < 24 * 60 * 60 * 1000) window.activeSave = data; else localStorage.removeItem('dinoworld_save'); }
     } catch (e) { console.error("Save load failed", e); }
 }
 loadSaveData();
@@ -15,18 +11,12 @@ loadSaveData();
 function saveGame() {
     if (G.state === 'intro') return;
     try {
-        const data = {
-            ts: Date.now(), level: G.level, wheat: G.wheat, player: G.player,
-            playerHp: G.playerHp, playerShield: G.playerShield, discovered: G.discovered,
-            volcanoTimer: G.volcanoTimer, megaTimer: G.megaTimer, megaOnLand: G.megaOnLand
-        };
+        const data = { ts: Date.now(), level: G.level, wheat: G.wheat, player: G.player, playerHp: G.playerHp, playerShield: G.playerShield, discovered: G.discovered, volcanoTimer: G.volcanoTimer, megaTimer: G.megaTimer, megaOnLand: G.megaOnLand };
         localStorage.setItem('dinoworld_save', JSON.stringify(data));
     } catch (e) { console.error("Save error", e); }
 }
 
-window.addEventListener('beforeunload', () => {
-    if(G.state === 'world' || G.state === 'shop' || G.state === 'index' || G.state === 'customize') saveGame();
-});
+window.addEventListener('beforeunload', () => { if(G.state === 'world' || G.state === 'shop' || G.state === 'index' || G.state === 'customize') saveGame(); });
 
 // ── WORLD GEN ──
 function noise(x,y){ return Math.sin(x*0.31)*Math.cos(y*0.29)+Math.sin(x*0.73+y*0.41)*0.5+Math.cos(x*0.17-y*0.23)*0.8+Math.sin((x+y)*0.11)*0.3; }
@@ -39,17 +29,11 @@ function generateWorld(){
             const isL2 = G.level === 2; const lx = x + (isL2 ? 500 : 0); const ly = y + (isL2 ? 500 : 0);
             const n=noise(lx,ly); let t=0;
             if(dist>0.92) t=2; else if(dist>0.75&&n<0.1) t=2; else if(dist>0.62&&n<-0.6) t=2; else if(n>0.9&&dist<0.68) t=1; else if(dist>0.66&&dist<0.76) t=3;
-
             if(isL2) {
                 const vcx = WS * 0.62, vcy = WS * 0.38; const craterDist = Math.hypot(x - vcx, y - vcy); const spawnDist = Math.hypot(x - WS/2, y - WS/2);
-                if(spawnDist > 4) {
-                    if(craterDist < 7) t = 4; 
-                    else if(craterDist < 14 && t !== 2) t = 1; 
-                    else if(t === 0 && (noise(lx*3.5, ly*3.5) > 0.5 || Math.sin(lx*0.45 + noise(lx*0.9, ly*0.7)*2.5) * Math.cos(ly*0.38) > 0.78)) t = 4;
-                }
+                if(spawnDist > 4) { if(craterDist < 7) t = 4; else if(craterDist < 14 && t !== 2) t = 1; else if(t === 0 && (noise(lx*3.5, ly*3.5) > 0.5 || Math.sin(lx*0.45 + noise(lx*0.9, ly*0.7)*2.5) * Math.cos(ly*0.38) > 0.78)) t = 4; }
             }
-            worldMap[y][x]=t;
-            const gCol = isL2 ? VGCLR : GCLR; const fCol = isL2 ? VFCLR : FCLR; const wCol = isL2 ? VWCLR : WCLR; const sCol = isL2 ? VSCLR : SCLR;
+            worldMap[y][x]=t; const gCol = isL2 ? VGCLR : GCLR; const fCol = isL2 ? VFCLR : FCLR; const wCol = isL2 ? VWCLR : WCLR; const sCol = isL2 ? VSCLR : SCLR;
             if(t===0) tileClr[y][x]=gCol[Math.abs(x*3+y*7)%gCol.length]; else if(t===1) tileClr[y][x]=fCol[Math.abs(x*5+y*3)%fCol.length]; else if(t===2) tileClr[y][x]=wCol[Math.abs(x*7+y*11)%wCol.length]; else if(t===3) tileClr[y][x]=sCol[Math.abs(x*11+y*5)%sCol.length]; else if(t===4) tileClr[y][x]=VRED[Math.abs(x*7+y*3)%VRED.length];
         }
     }
@@ -59,286 +43,159 @@ generateWorld();
 
 // ── CO-OP PARTY MANAGEMENT ──
 function bondWithPartner(id, name) {
-    G.coop.partnerId = id; G.coop.partnerName = name;
-    G.level = 1; G.wheat = 70; 
-    G.player.dk = 'raptor'; G.discovered = {raptor:true}; 
-    G.player.upg = {hp:0, atk:0, spd:0};
-    G.playerHp = pMaxHp(); G.playerShield = 0;
-    
-    G.player.x = WS/2*TS; G.player.y = WS/2*TS;
-    generateWorld(); spawnWilds(); spawnMega();
-    G.cam.x = G.player.x - canvas.width/2; G.cam.y = G.player.y - canvas.height/2;
+    G.coop.partnerId = id; G.coop.partnerName = name; G.level = 1; G.wheat = 70; G.player.dk = 'raptor'; G.discovered = {raptor:true}; G.player.upg = {hp:0, atk:0, spd:0}; G.playerHp = pMaxHp(); G.playerShield = 0;
+    G.player.x = WS/2*TS; G.player.y = WS/2*TS; generateWorld(); spawnWilds(); spawnMega(); G.cam.x = G.player.x - canvas.width/2; G.cam.y = G.player.y - canvas.height/2;
     addChatMessage('System', `Successfully Bonded with ${name}! Progress Reset for Co-op Mode.`);
 }
 
 function breakCoop(reason) {
-    G.coop.partnerId = null; G.coop.partnerName = '';
-    G.level = 1; G.wheat = 70; 
-    G.player.dk = 'raptor'; G.discovered = {raptor:true}; 
-    G.player.upg = {hp:0, atk:0, spd:0};
-    G.playerHp = pMaxHp(); G.playerShield = 0;
-    
-    G.player.x = WS/2*TS; G.player.y = WS/2*TS;
-    generateWorld(); spawnWilds(); spawnMega();
-    G.cam.x = G.player.x - canvas.width/2; G.cam.y = G.player.y - canvas.height/2;
+    G.coop.partnerId = null; G.coop.partnerName = ''; G.level = 1; G.wheat = 70; G.player.dk = 'raptor'; G.discovered = {raptor:true}; G.player.upg = {hp:0, atk:0, spd:0}; G.playerHp = pMaxHp(); G.playerShield = 0;
+    G.player.x = WS/2*TS; G.player.y = WS/2*TS; generateWorld(); spawnWilds(); spawnMega(); G.cam.x = G.player.x - canvas.width/2; G.cam.y = G.player.y - canvas.height/2;
     addChatMessage('System', `${reason} Progress Reset to Solo Mode.`);
 }
 
 
 // ── BATTLE LOGIC (PVP & CO-OP) ──
-function getMyBattleStats() {
-    return { dk: G.player.dk, hp: G.playerHp, mhp: pMaxHp(), shield: G.playerShield, mshield: Math.floor(pMaxHp()*0.4), atk: pAtk(), spd: pSpd(), name: G.username || 'Player', oc: G.player.oc, hat: G.player.hat };
-}
+function getMyBattleStats() { return { dk: G.player.dk, hp: G.playerHp, mhp: pMaxHp(), shield: G.playerShield, mshield: Math.floor(pMaxHp()*0.4), atk: pAtk(), spd: pSpd(), name: G.username || 'Player', oc: G.player.oc, hat: G.player.hat }; }
 
 function startPvPBattle(opId, opStats, isMyTurn) {
     G.state = 'battle'; G.pvp.opponentId = opId;
     G.battle = {
-        isPvP: true, isCoop: false, opId: opId, ek: opStats.dk, ehp: opStats.hp, emhp: opStats.mhp,
-        eshield: opStats.shield, emshield: opStats.mshield, ename: opStats.name, eoc: opStats.oc, ehat: opStats.hat, eatk: opStats.atk, espd: opStats.spd,
-        php: G.playerHp, pmhp: pMaxHp(), php_shield: G.playerShield, pmhp_shield: Math.floor(pMaxHp()*0.4),
-        turn: isMyTurn ? 'player' : 'enemy', log:[`⚔️ Friendly PvP with ${opStats.name}!`], anim: false, res: null, eshake: 0, pshake: 0, cshake: 0, dnums:[]
-    };
-    G.btns =[];
+        isPvP: true, isCoop: false, opId: opId, ek: opStats.dk, ehp: opStats.hp, emhp: opStats.mhp, eshield: opStats.shield, emshield: opStats.mshield, ename: opStats.name, eoc: opStats.oc, ehat: opStats.hat, eatk: opStats.atk, espd: opStats.spd,
+        php: G.playerHp, pmhp: pMaxHp(), php_shield: G.playerShield, pmhp_shield: Math.floor(pMaxHp()*0.4), turn: isMyTurn ? 'player' : 'enemy', log:[`⚔️ Friendly PvP with ${opStats.name}!`], anim: false, res: null, eshake: 0, pshake: 0, cshake: 0, dnums:[]
+    }; G.btns =[];
 }
 
 function startCoopBattle(ek, isBoss, isHostOfBattle, partnerStats) {
-    const en = DINOS[ek]; G.state = 'battle';
-    let eHP = Math.floor(en.hp * R_MULT[en.rarity] * 1.3); // 1.3x Co-op Boss Buff
-    
+    const en = DINOS[ek]; G.state = 'battle'; let eHP = Math.floor(en.hp * R_MULT[en.rarity] * 1.3); // 1.3x Co-op Boss Buff
     G.battle = {
-        isPvP: false, isCoop: true, isBattleHost: isHostOfBattle, opId: null, ek: ek, 
-        ehp: eHP, emhp: eHP, eatk: 0, eshield: 0, emshield: 0, ename: '', eoc: null, ehat: '',
-        
-        php: G.playerHp, pmhp: pMaxHp(), php_shield: G.playerShield, pmhp_shield: Math.floor(pMaxHp()*0.4),
-        
-        cpHp: partnerStats.hp, cpMhp: partnerStats.mhp, cpShield: partnerStats.shield, 
-        cpDk: partnerStats.dk, cpName: partnerStats.name, cpOc: partnerStats.oc, cpHat: partnerStats.hat,
-        
-        // Correctly set initial turns. Host of battle goes first. 
-        // "partner" means waiting for the other person to attack.
-        turn: isHostOfBattle ? 'player' : 'partner', 
-        log: [`🤝 Co-op Battle against ${en.name}!`], anim: false, res: null, eshake: 0, pshake: 0, cshake: 0, dnums:[]
-    };
-    G.btns =[];
+        isPvP: false, isCoop: true, isBattleHost: isHostOfBattle, opId: null, ek: ek, ehp: eHP, emhp: eHP, eatk: 0, eshield: 0, emshield: 0, ename: '', eoc: null, ehat: '',
+        php: G.playerHp, pmhp: pMaxHp(), php_shield: G.playerShield, pmhp_shield: Math.floor(pMaxHp()*0.4), cpHp: partnerStats.hp, cpMhp: partnerStats.mhp, cpShield: partnerStats.shield, cpDk: partnerStats.dk, cpName: partnerStats.name, cpOc: partnerStats.oc, cpHat: partnerStats.hat,
+        turn: isHostOfBattle ? 'player' : 'partner', log: [`🤝 Co-op Battle against ${en.name}!`], anim: false, res: null, eshake: 0, pshake: 0, cshake: 0, dnums:[]
+    }; G.btns =[];
 }
 
 function startBattle(ek, isBoss) {
     if (G.coop.partnerId && G.otherPlayers[G.coop.partnerId]) {
-        const pStats = G.otherPlayers[G.coop.partnerId];
-        sendCoop({ type: 'coop_battle_start', target: G.coop.partnerId, ek: ek, isBoss: isBoss, stats: getMyBattleStats() });
-        startCoopBattle(ek, isBoss, true, { hp: pMaxHp(), mhp: pMaxHp(), shield: 0, dk: pStats.dk, name: pStats.name || 'Partner', oc: pStats.oc, hat: pStats.hat });
-        return;
+        const pStats = G.otherPlayers[G.coop.partnerId]; sendCoop({ type: 'coop_battle_start', target: G.coop.partnerId, ek: ek, isBoss: isBoss, stats: getMyBattleStats() });
+        startCoopBattle(ek, isBoss, true, { hp: pStats.hp, mhp: pStats.mhp, shield: 0, dk: pStats.dk, name: pStats.name || 'Partner', oc: pStats.oc, hat: pStats.hat }); return;
     }
-
     const en=DINOS[ek]; G.state='battle';
     G.battle = {
         isPvP:false, isCoop:false, opId:null, ek, ehp: Math.floor(en.hp * R_MULT[en.rarity]), emhp: Math.floor(en.hp * R_MULT[en.rarity]), eshield:0, emshield:0,
-        php:G.playerHp, pmhp:pMaxHp(), php_shield:G.playerShield, pmhp_shield:Math.floor(pMaxHp()*0.4),
-        turn:'player',log:[isBoss?`⚠️ BOSS: ${en.name} appears!`:`Wild ${en.name} appeared!`],
-        anim:false,res:null,eshake:0,pshake:0,cshake:0,dnums:[],isBoss:!!isBoss
-    };
-    G.btns=[];
+        php:G.playerHp, pmhp:pMaxHp(), php_shield:G.playerShield, pmhp_shield:Math.floor(pMaxHp()*0.4), turn:'player',log:[isBoss?`⚠️ BOSS: ${en.name} appears!`:`Wild ${en.name} appeared!`], anim:false,res:null,eshake:0,pshake:0,cshake:0,dnums:[],isBoss:!!isBoss
+    }; G.btns=[];
 }
 
 function doAttack() {
-    const b=G.battle;
-    if(b.turn!=='player'||b.anim||b.res) return;
-    b.anim=true; const dmg = pAtk();
+    const b=G.battle; if(b.turn!=='player'||b.anim||b.res) return; b.anim=true; const dmg = pAtk();
 
     if (b.isPvP) {
         sendPvP({ type: 'pvp_action', target: b.opId, sender: (G.isHost ? 'host' : G.peer.id), action: 'attack', dmg: dmg });
         if (b.eshield >= dmg) { b.eshield -= dmg; } else { b.ehp -= (dmg - b.eshield); b.eshield = 0; }
-        b.ehp = Math.max(0, b.ehp); b.eshake=20;
-        b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:dmg,col:'#ff4444',life:60});
-        b.log.unshift(`You attack for ${dmg} dmg!`);if(b.log.length>5)b.log.pop();
-        spawnParticles(canvas.width*0.67,canvas.height*0.37,'#ff4444',6);
-        if(b.ehp <= 0){ setTimeout(()=>{ b.log.unshift(`🏆 You won the friendly match!`); b.res = 'win'; b.anim = false; spawnParticles(canvas.width*0.67, canvas.height*0.37, '#55ddff', 16); }, 500); } 
-        else { setTimeout(()=>{ b.anim=false; b.turn='enemy'; }, 520); }
-        return;
+        b.ehp = Math.max(0, b.ehp); b.eshake=20; b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:dmg,col:'#ff4444',life:60});
+        b.log.unshift(`You attack for ${dmg} dmg!`);if(b.log.length>5)b.log.pop(); spawnParticles(canvas.width*0.67,canvas.height*0.37,'#ff4444',6);
+        if(b.ehp <= 0){ setTimeout(()=>{ b.log.unshift(`🏆 You won the friendly match!`); b.res = 'win'; b.anim = false; spawnParticles(canvas.width*0.67, canvas.height*0.37, '#55ddff', 16); }, 500); } else { setTimeout(()=>{ b.anim=false; b.turn='enemy'; }, 520); } return;
     }
 
     if (b.isCoop) {
-        b.ehp = Math.max(0, b.ehp - dmg); b.eshake=20;
-        b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:dmg,col:'#ff4444',life:60});
-        b.log.unshift(`You attack for ${dmg} dmg!`);if(b.log.length>5)b.log.pop();
-        spawnParticles(canvas.width*0.67,canvas.height*0.37,'#ff4444',6);
-        
-        sendCoop({ type: 'coop_battle_action', target: G.coop.partnerId, action: 'player_attack', dmg: dmg });
+        b.ehp = Math.max(0, b.ehp - dmg); b.eshake=20; b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:dmg,col:'#ff4444',life:60});
+        b.log.unshift(`You attack for ${dmg} dmg!`);if(b.log.length>5)b.log.pop(); spawnParticles(canvas.width*0.67,canvas.height*0.37,'#ff4444',6);
+        sendCoop({ type: 'coop_battle_action', target: G.coop.partnerId, action: 'player_attack', dmg: dmg }); // Tell partner I attacked
         
         if(b.ehp<=0){
             setTimeout(()=>{
-                const rew = Math.floor(DINOS[b.ek].rw * (b.isBoss?3:1) * 1.5); G.wheat += rew;
-                sendCoop({ type: 'coop_sync', target: G.coop.partnerId, wheat: G.wheat });
+                const rew = Math.floor(DINOS[b.ek].rw * (b.isBoss?3:1) * 1.5); G.wheat += rew; // Shared Bank Add
+                if (G.coop.partnerId) sendCoop({ type: 'coop_wheat', target: G.coop.partnerId, wheat: G.wheat }); // Broadcast new total to partner
                 b.log.unshift(`🪣 Co-op Team Won ${rew} Buckets!`);
                 if(!G.discovered[b.ek]) { G.discovered[b.ek]=true; b.log.unshift(`📘 ${DINOS[b.ek].name} added to Index!`); }
-                b.res = (b.ek === 'megalodon' && G.level === 1) ? 'level2' : 'win'; b.anim = false;
-                spawnParticles(canvas.width*0.67,canvas.height*0.37,'#55ddff',16);
-            }, 500);
-            return;
+                b.res = (b.ek === 'megalodon' && G.level === 1) ? 'level2' : 'win'; b.anim = false; spawnParticles(canvas.width*0.67,canvas.height*0.37,'#55ddff',16);
+            }, 500); return;
         }
         
-        // Pass Turn Fix: If Partner alive, wait for partner. If dead and I am Host, I trigger enemy.
+        // Pass Turn
         setTimeout(()=>{ 
             b.anim = false; 
-            if (b.isBattleHost) {
-                if (b.cpHp > 0) b.turn = 'partner'; else enemyTurn();
-            } else {
-                b.turn = 'enemy';
-            }
-        }, 520);
-        return;
+            if (b.isBattleHost) { if (b.cpHp > 0) b.turn = 'partner'; else enemyTurn(); } 
+            else { b.turn = 'enemy'; }
+        }, 520); return;
     }
 
-    b.ehp=Math.max(0,b.ehp-dmg);b.eshake=20;
-    b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:dmg,col:'#ff4444',life:60});
-    b.log.unshift(`You attack for ${dmg} dmg!`);if(b.log.length>5)b.log.pop();
-    spawnParticles(canvas.width*0.67,canvas.height*0.37,'#ff4444',6);
-    if(b.ehp<=0){
-        setTimeout(()=>{
-            const rew=DINOS[b.ek].rw*(b.isBoss?3:1);G.wheat+=rew; b.log.unshift(`🪣 Won ${rew} Buckets!`);
-            if(!G.discovered[b.ek]){G.discovered[b.ek]=true;b.log.unshift(`📘 ${DINOS[b.ek].name} added to Index!`);}
-            b.res = (b.ek === 'megalodon' && G.level === 1) ? 'level2' : 'win'; b.anim = false;
-            spawnParticles(canvas.width*0.67,canvas.height*0.37,'#55ddff',16);
-        },500);
-        return;
-    }
+    b.ehp=Math.max(0,b.ehp-dmg);b.eshake=20; b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:dmg,col:'#ff4444',life:60}); b.log.unshift(`You attack for ${dmg} dmg!`);if(b.log.length>5)b.log.pop(); spawnParticles(canvas.width*0.67,canvas.height*0.37,'#ff4444',6);
+    if(b.ehp<=0){ setTimeout(()=>{ const rew=DINOS[b.ek].rw*(b.isBoss?3:1);G.wheat+=rew; b.log.unshift(`🪣 Won ${rew} Buckets!`); if(!G.discovered[b.ek]){G.discovered[b.ek]=true;b.log.unshift(`📘 ${DINOS[b.ek].name} added to Index!`);} b.res = (b.ek === 'megalodon' && G.level === 1) ? 'level2' : 'win'; b.anim = false; spawnParticles(canvas.width*0.67,canvas.height*0.37,'#55ddff',16); },500); return; }
     setTimeout(()=>{b.anim=false;b.turn='enemy';enemyTurn();},520);
 }
 
 function processCoopBattleAction(data) {
-    const b = G.battle;
-    if (G.state !== 'battle' || !b.isCoop) return;
+    const b = G.battle; if (G.state !== 'battle' || !b.isCoop) return;
 
     if (data.action === 'player_attack') {
-        b.anim = true;
-        b.ehp = Math.max(0, b.ehp - data.dmg); b.eshake = 20;
-        b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:data.dmg,col:'#ff4444',life:60});
-        b.log.unshift(`${b.cpName} attacks for ${data.dmg} dmg!`); if(b.log.length>5)b.log.pop();
-        spawnParticles(canvas.width*0.67,canvas.height*0.37,'#ff4444',6);
-        
-        if (b.ehp <= 0) {
-            setTimeout(()=>{
-                const rew = Math.floor(DINOS[b.ek].rw * (b.isBoss?3:1) * 1.5); G.wheat += rew;
-                b.log.unshift(`🪣 Co-op Team Won ${rew} Buckets!`);
-                if(!G.discovered[b.ek]) { G.discovered[b.ek]=true; b.log.unshift(`📘 ${DINOS[b.ek].name} added to Index!`); }
-                b.res = (b.ek === 'megalodon' && G.level === 1) ? 'level2' : 'win'; b.anim = false;
-            }, 500);
-            return;
-        }
-
-        setTimeout(()=>{ 
-            b.anim = false; 
-            // Turn Passing Fix: 
-            // If I am Host and Partner attacked, it is Enemy's turn. 
-            // If I am Partner and Host attacked, it is MY turn!
-            if (b.isBattleHost) enemyTurn();
-            else b.turn = (b.php > 0) ? 'player' : 'enemy'; 
-        }, 520);
+        b.anim = true; b.ehp = Math.max(0, b.ehp - data.dmg); b.eshake = 20; b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:data.dmg,col:'#ff4444',life:60}); b.log.unshift(`${b.cpName} attacks for ${data.dmg} dmg!`); if(b.log.length>5)b.log.pop(); spawnParticles(canvas.width*0.67,canvas.height*0.37,'#ff4444',6);
+        if (b.ehp <= 0) { setTimeout(()=>{ const rew = Math.floor(DINOS[b.ek].rw * (b.isBoss?3:1) * 1.5); b.log.unshift(`🪣 Co-op Team Won ${rew} Buckets!`); if(!G.discovered[b.ek]) { G.discovered[b.ek]=true; b.log.unshift(`📘 ${DINOS[b.ek].name} added to Index!`); } b.res = (b.ek === 'megalodon' && G.level === 1) ? 'level2' : 'win'; b.anim = false; }, 500); return; }
+        setTimeout(()=>{ b.anim = false; if (b.isBattleHost) enemyTurn(); else b.turn = (b.php > 0) ? 'player' : 'enemy'; }, 520);
     } 
     else if (data.action === 'enemy_attack') {
-        b.anim = true;
-        // Since I only receive this if I am the Partner, if it hit the Battle Host, it didn't hit me!
-        const targetIsMe = !data.targetIsBattleHost; 
-        
+        b.anim = true; const targetIsMe = !data.targetIsBattleHost; 
         if (targetIsMe) {
-            if (b.php_shield >= data.dmg) b.php_shield -= data.dmg; else { b.php -= (data.dmg - b.php_shield); b.php_shield = 0; }
-            G.playerHp = Math.max(0, b.php); G.playerShield = b.php_shield;
-            b.pshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.4,val:data.dmg,col:'#ff8844',life:60});
-            spawnParticles(canvas.width*0.28,canvas.height*0.4,'#ff8844',6);
-            b.log.unshift(`${DINOS[b.ek].name} bites YOU for ${data.dmg}!`);
+            if (b.php_shield >= data.dmg) b.php_shield -= data.dmg; else { b.php -= (data.dmg - b.php_shield); b.php_shield = 0; } G.playerHp = Math.max(0, b.php); G.playerShield = b.php_shield; b.pshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.4,val:data.dmg,col:'#ff8844',life:60}); spawnParticles(canvas.width*0.28,canvas.height*0.4,'#ff8844',6); b.log.unshift(`${DINOS[b.ek].name} bites YOU for ${data.dmg}!`);
         } else {
-            if (b.cpShield >= data.dmg) b.cpShield -= data.dmg; else { b.cpHp -= (data.dmg - b.cpShield); b.cpShield = 0; }
-            b.cshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.65,val:data.dmg,col:'#ff8844',life:60});
-            spawnParticles(canvas.width*0.28,canvas.height*0.65,'#ff8844',6);
-            b.log.unshift(`${DINOS[b.ek].name} bites ${b.cpName} for ${data.dmg}!`);
+            if (b.cpShield >= data.dmg) b.cpShield -= data.dmg; else { b.cpHp -= (data.dmg - b.cpShield); b.cpShield = 0; } b.cshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.65,val:data.dmg,col:'#ff8844',life:60}); spawnParticles(canvas.width*0.28,canvas.height*0.65,'#ff8844',6); b.log.unshift(`${DINOS[b.ek].name} bites ${b.cpName} for ${data.dmg}!`);
         }
         if(b.log.length>5)b.log.pop();
-
         setTimeout(()=>{
             b.anim=false;
-            if(b.php <= 0 && b.cpHp <= 0){
-                const pen=Math.floor(G.wheat*0.2); G.wheat=Math.max(0,G.wheat-pen);
-                sendCoop({ type: 'coop_sync', target: G.coop.partnerId, wheat: G.wheat });
-                b.log.unshift(`💀 Team Defeated! Lost ${pen} Buckets.`); b.res='lose';
-            } else {
-                b.turn = (b.cpHp > 0) ? 'partner' : 'player'; // Wait for Host to go next
-            }
+            if(b.php <= 0 && b.cpHp <= 0){ const pen=Math.floor(G.wheat*0.2); b.log.unshift(`💀 Team Defeated! Lost ${pen} Buckets.`); b.res='lose'; } 
+            else { b.turn = (b.cpHp > 0) ? 'partner' : 'player'; }
         }, 420);
     }
-    else if (data.action === 'run') {
-        b.log.unshift(`${b.cpName} fled the battle!`); b.res = 'win';
-    }
+    else if (data.action === 'run') { b.log.unshift(`${b.cpName} fled the battle!`); b.res = 'win'; }
 }
 
 function enemyTurn(){
-    const b=G.battle;if(b.res) return;
-    b.anim=true; const en=DINOS[b.ek];
+    const b=G.battle;if(b.res) return; b.anim=true; const en=DINOS[b.ek];
     let dmg = Math.max(1, Math.floor(en.atk * R_MULT[en.rarity]) + Math.floor(Math.random()*10)-5);
-    if(b.ek === 'megalodon') dmg = 125 + Math.floor(Math.random() * 20); 
-    else if(b.ek === 'indominus') dmg = 175 + Math.floor(Math.random() * 50);
+    if(b.ek === 'megalodon') dmg = 125 + Math.floor(Math.random() * 20); else if(b.ek === 'indominus') dmg = 175 + Math.floor(Math.random() * 50);
 
     if (b.isCoop) {
-        dmg = Math.floor(dmg * 1.3); // Co-op modifier
-        const canHitPlayer = b.php > 0;
-        const canHitPartner = b.cpHp > 0;
-        let targetLocal = true; // Target Battle Host
+        dmg = Math.floor(dmg * 1.3); const canHitPlayer = b.php > 0; const canHitPartner = b.cpHp > 0; let targetLocal = true; 
+        if (canHitPlayer && canHitPartner) targetLocal = Math.random() > 0.5; else if (canHitPartner) targetLocal = false;
         
-        if (canHitPlayer && canHitPartner) targetLocal = Math.random() > 0.5;
-        else if (canHitPartner) targetLocal = false;
-
         if (targetLocal) {
-            if (b.php_shield >= dmg) b.php_shield -= dmg; else { b.php -= (dmg - b.php_shield); b.php_shield = 0; }
-            G.playerHp = Math.max(0, b.php); G.playerShield = b.php_shield;
-            b.pshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.4,val:dmg,col:'#ff8844',life:60});
-            spawnParticles(canvas.width*0.28,canvas.height*0.4,'#ff8844',6); b.log.unshift(`${en.name} bites YOU for ${dmg}!`);
+            if (b.php_shield >= dmg) b.php_shield -= dmg; else { b.php -= (dmg - b.php_shield); b.php_shield = 0; } G.playerHp = Math.max(0, b.php); G.playerShield = b.php_shield; b.pshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.4,val:dmg,col:'#ff8844',life:60}); spawnParticles(canvas.width*0.28,canvas.height*0.4,'#ff8844',6); b.log.unshift(`${en.name} bites YOU for ${dmg}!`);
         } else {
-            if (b.cpShield >= dmg) b.cpShield -= dmg; else { b.cpHp -= (dmg - b.cpShield); b.cpShield = 0; }
-            b.cshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.65,val:dmg,col:'#ff8844',life:60});
-            spawnParticles(canvas.width*0.28,canvas.height*0.65,'#ff8844',6); b.log.unshift(`${en.name} bites ${b.cpName} for ${dmg}!`);
+            if (b.cpShield >= dmg) b.cpShield -= dmg; else { b.cpHp -= (dmg - b.cpShield); b.cpShield = 0; } b.cshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.65,val:dmg,col:'#ff8844',life:60}); spawnParticles(canvas.width*0.28,canvas.height*0.65,'#ff8844',6); b.log.unshift(`${en.name} bites ${b.cpName} for ${dmg}!`);
         }
         if(b.log.length>5)b.log.pop();
-
         sendCoop({ type: 'coop_battle_action', target: G.coop.partnerId, action: 'enemy_attack', dmg: dmg, targetIsBattleHost: targetLocal });
 
         setTimeout(()=>{
             b.anim=false;
             if(b.php <= 0 && b.cpHp <= 0){
-                const pen=Math.floor(G.wheat*0.2); G.wheat=Math.max(0,G.wheat-pen);
+                const pen=Math.floor(G.wheat*0.2); G.wheat=Math.max(0,G.wheat-pen); if (G.coop.partnerId) sendCoop({ type: 'coop_wheat', target: G.coop.partnerId, wheat: G.wheat });
                 b.log.unshift(`💀 Team Defeated! Lost ${pen} Buckets.`); b.res='lose';
-            } else {
-                b.turn = b.php > 0 ? 'player' : 'partner';
-            }
-        }, 420);
-        return;
+            } else { b.turn = b.php > 0 ? 'player' : 'partner'; }
+        }, 420); return;
     }
 
-    if (b.php_shield >= dmg) b.php_shield -= dmg; else { b.php -= (dmg - b.php_shield); b.php_shield = 0; }
-    G.playerHp = Math.max(0, b.php); G.playerShield = b.php_shield;
-
-    b.pshake=18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.52,val:dmg,col:'#ff8844',life:60});
-    b.log.unshift(`${en.name} attacks for ${dmg}!`);if(b.log.length>5)b.log.pop();
-    spawnParticles(canvas.width*0.28,canvas.height*0.52,'#ff8844',6);
-    setTimeout(()=>{
-        b.anim=false;
-        if(b.php<=0){ const pen=Math.floor(G.wheat*0.2);G.wheat=Math.max(0,G.wheat-pen); b.log.unshift(`💀 Defeated! Lost ${pen} Buckets.`);b.res='lose'; } 
-        else {b.turn='player';}
-    },420);
+    if (b.php_shield >= dmg) b.php_shield -= dmg; else { b.php -= (dmg - b.php_shield); b.php_shield = 0; } G.playerHp = Math.max(0, b.php); G.playerShield = b.php_shield;
+    b.pshake=18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.52,val:dmg,col:'#ff8844',life:60}); b.log.unshift(`${en.name} attacks for ${dmg}!`);if(b.log.length>5)b.log.pop(); spawnParticles(canvas.width*0.28,canvas.height*0.52,'#ff8844',6);
+    setTimeout(()=>{ b.anim=false; if(b.php<=0){ const pen=Math.floor(G.wheat*0.2);G.wheat=Math.max(0,G.wheat-pen); b.log.unshift(`💀 Defeated! Lost ${pen} Buckets.`);b.res='lose'; } else {b.turn='player';} },420);
 }
 
 function doRun() {
     const b=G.battle;if(b.res||b.anim) return;
-
     if (b.isPvP) { sendPvP({ type: 'pvp_action', target: b.opId, sender: (G.isHost ? 'host' : G.peer.id), action: 'run' }); b.log.unshift('You fled the friendly match!'); setTimeout(exitBattle, 500); return; }
     if (b.isCoop) { sendCoop({ type: 'coop_battle_action', target: G.coop.partnerId, action: 'run' }); b.log.unshift('Team fled the battle safely!'); setTimeout(exitBattle, 500); return; }
-
     if(Math.random()<0.62){b.log.unshift('Got away safely!');setTimeout(exitBattle,500);} else{b.log.unshift("Can't escape!");b.turn='enemy';setTimeout(enemyTurn,350);}
 }
 
 function exitBattle(){
     G.state='world';
     if (G.battle.isPvP) {
-        if (G.battle.php <= 0) G.playerHp = 1; else G.playerHp = G.battle.php;
-        G.playerShield = G.battle.php_shield; G.pvp.cd = 1800; 
+        if (G.battle.php <= 0) G.playerHp = 1; else G.playerHp = G.battle.php; G.playerShield = G.battle.php_shield; G.pvp.cd = 1800; 
+    } else if (G.battle.isCoop) {
+        // DOES NOT FULL HEAL ANYMORE! Sets your exact HP to what it was at the end of the battle!
+        G.playerHp = G.battle.res === 'lose' ? pMaxHp() : Math.max(0, G.battle.php);
     } else {
         G.playerHp = G.battle.res === 'lose' ? pMaxHp() : Math.max(5, G.battle.php);
     }
@@ -496,8 +353,7 @@ function startGame(isNew = false) {
         G.volcanoTimer = s.volcanoTimer || 10800; G.megaTimer = s.megaTimer || 3600; G.megaOnLand = s.megaOnLand || false;
         window.activeSave = null;
         generateWorld(); spawnWilds(); spawnMega();
-        G.cam.x = Math.max(0, Math.min(WS*TS-canvas.width, G.player.x - canvas.width/2));
-        G.cam.y = Math.max(0, Math.min(WS*TS-canvas.height, G.player.y - canvas.height/2));
+        G.cam.x = Math.max(0, Math.min(WS*TS-canvas.width, G.player.x - canvas.width/2)); G.cam.y = Math.max(0, Math.min(WS*TS-canvas.height, G.player.y - canvas.height/2));
         G.coop = { partnerId: null, partnerName: '', reqTo: null, reqFrom: null, reqFromName: '' };
     } else if (isNew) {
         G.level = 1; G.wheat = 60; G.playerHp = 80; G.playerShield = 0; G.discovered = {raptor:true};
@@ -505,16 +361,13 @@ function startGame(isNew = false) {
         G.volcanoTimer = 10800; G.megaTimer = 3600; G.megaOnLand = false; G.cheatsActive = false;
         G.coop = { partnerId: null, partnerName: '', reqTo: null, reqFrom: null, reqFromName: '' };
         generateWorld(); spawnWilds(); spawnMega();
-        G.cam.x = Math.max(0, Math.min(WS*TS-canvas.width, G.player.x - canvas.width/2));
-        G.cam.y = Math.max(0, Math.min(WS*TS-canvas.height, G.player.y - canvas.height/2));
+        G.cam.x = Math.max(0, Math.min(WS*TS-canvas.width, G.player.x - canvas.width/2)); G.cam.y = Math.max(0, Math.min(WS*TS-canvas.height, G.player.y - canvas.height/2));
     } else {
         G.playerHp = pMaxHp();
-        G.cam.x = Math.max(0, Math.min(WS*TS-canvas.width, G.player.x - canvas.width/2));
-        G.cam.y = Math.max(0, Math.min(WS*TS-canvas.height, G.player.y - canvas.height/2));
+        G.cam.x = Math.max(0, Math.min(WS*TS-canvas.width, G.player.x - canvas.width/2)); G.cam.y = Math.max(0, Math.min(WS*TS-canvas.height, G.player.y - canvas.height/2));
     }
     G.state = 'world';
 }
 
-// ── INITIALIZATION ──
 function loop(){update();render();requestAnimationFrame(loop);}
 loop();
