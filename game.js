@@ -102,11 +102,8 @@ function startPvPBattle(opId, opStats, isMyTurn) {
 }
 
 function startCoopBattle(ek, isBoss, isHostOfBattle, partnerStats) {
-    const en = DINOS[ek];
-    G.state = 'battle';
-    
-    // 1.3x Buff to Enemy Stats
-    let eHP = Math.floor(en.hp * R_MULT[en.rarity] * 1.3);
+    const en = DINOS[ek]; G.state = 'battle';
+    let eHP = Math.floor(en.hp * R_MULT[en.rarity] * 1.3); // 1.3x Co-op Boss Buff
     
     G.battle = {
         isPvP: false, isCoop: true, isBattleHost: isHostOfBattle, opId: null, ek: ek, 
@@ -117,22 +114,19 @@ function startCoopBattle(ek, isBoss, isHostOfBattle, partnerStats) {
         cpHp: partnerStats.hp, cpMhp: partnerStats.mhp, cpShield: partnerStats.shield, 
         cpDk: partnerStats.dk, cpName: partnerStats.name, cpOc: partnerStats.oc, cpHat: partnerStats.hat,
         
-        turn: isHostOfBattle ? 'player' : 'partner', // Host goes first, partner waits
+        // Correctly set initial turns. Host of battle goes first. 
+        // "partner" means waiting for the other person to attack.
+        turn: isHostOfBattle ? 'player' : 'partner', 
         log: [`🤝 Co-op Battle against ${en.name}!`], anim: false, res: null, eshake: 0, pshake: 0, cshake: 0, dnums:[]
     };
     G.btns =[];
 }
 
 function startBattle(ek, isBoss) {
-    // Check if we are bonded and should trigger Co-op!
     if (G.coop.partnerId && G.otherPlayers[G.coop.partnerId]) {
         const pStats = G.otherPlayers[G.coop.partnerId];
-        // Send battle forced trigger to partner
         sendCoop({ type: 'coop_battle_start', target: G.coop.partnerId, ek: ek, isBoss: isBoss, stats: getMyBattleStats() });
-        // Create dual-battle UI, I am the host of this specific battle
-        startCoopBattle(ek, isBoss, true, {
-            hp: pMaxHp(), mhp: pMaxHp(), shield: 0, dk: pStats.dk, name: pStats.name || 'Partner', oc: pStats.oc, hat: pStats.hat
-        });
+        startCoopBattle(ek, isBoss, true, { hp: pMaxHp(), mhp: pMaxHp(), shield: 0, dk: pStats.dk, name: pStats.name || 'Partner', oc: pStats.oc, hat: pStats.hat });
         return;
     }
 
@@ -149,8 +143,7 @@ function startBattle(ek, isBoss) {
 function doAttack() {
     const b=G.battle;
     if(b.turn!=='player'||b.anim||b.res) return;
-    b.anim=true;
-    const dmg = pAtk();
+    b.anim=true; const dmg = pAtk();
 
     if (b.isPvP) {
         sendPvP({ type: 'pvp_action', target: b.opId, sender: (G.isHost ? 'host' : G.peer.id), action: 'attack', dmg: dmg });
@@ -165,7 +158,6 @@ function doAttack() {
     }
 
     if (b.isCoop) {
-        // Co-op Attack Logic
         b.ehp = Math.max(0, b.ehp - dmg); b.eshake=20;
         b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:dmg,col:'#ff4444',life:60});
         b.log.unshift(`You attack for ${dmg} dmg!`);if(b.log.length>5)b.log.pop();
@@ -185,11 +177,14 @@ function doAttack() {
             return;
         }
         
-        // Pass Turn to Partner (unless partner is dead, then straight to enemy)
+        // Pass Turn Fix: If Partner alive, wait for partner. If dead and I am Host, I trigger enemy.
         setTimeout(()=>{ 
             b.anim = false; 
-            if(b.cpHp > 0) b.turn = 'partner'; 
-            else if (b.isBattleHost) enemyTurn(); // If partner dead, host triggers enemy
+            if (b.isBattleHost) {
+                if (b.cpHp > 0) b.turn = 'partner'; else enemyTurn();
+            } else {
+                b.turn = 'enemy';
+            }
         }, 520);
         return;
     }
@@ -200,8 +195,7 @@ function doAttack() {
     spawnParticles(canvas.width*0.67,canvas.height*0.37,'#ff4444',6);
     if(b.ehp<=0){
         setTimeout(()=>{
-            const rew=DINOS[b.ek].rw*(b.isBoss?3:1);G.wheat+=rew;
-            b.log.unshift(`🪣 Won ${rew} Buckets!`);
+            const rew=DINOS[b.ek].rw*(b.isBoss?3:1);G.wheat+=rew; b.log.unshift(`🪣 Won ${rew} Buckets!`);
             if(!G.discovered[b.ek]){G.discovered[b.ek]=true;b.log.unshift(`📘 ${DINOS[b.ek].name} added to Index!`);}
             b.res = (b.ek === 'megalodon' && G.level === 1) ? 'level2' : 'win'; b.anim = false;
             spawnParticles(canvas.width*0.67,canvas.height*0.37,'#55ddff',16);
@@ -211,13 +205,11 @@ function doAttack() {
     setTimeout(()=>{b.anim=false;b.turn='enemy';enemyTurn();},520);
 }
 
-// Handles incoming packets during a Co-op battle
 function processCoopBattleAction(data) {
     const b = G.battle;
     if (G.state !== 'battle' || !b.isCoop) return;
 
     if (data.action === 'player_attack') {
-        // Partner attacked the enemy
         b.anim = true;
         b.ehp = Math.max(0, b.ehp - data.dmg); b.eshake = 20;
         b.dnums.push({x:canvas.width*0.67,y:canvas.height*0.37,val:data.dmg,col:'#ff4444',life:60});
@@ -236,29 +228,27 @@ function processCoopBattleAction(data) {
 
         setTimeout(()=>{ 
             b.anim = false; 
-            // If I am the Battle Host, I trigger the Enemy's AI now. Otherwise, I wait for packet.
+            // Turn Passing Fix: 
+            // If I am Host and Partner attacked, it is Enemy's turn. 
+            // If I am Partner and Host attacked, it is MY turn!
             if (b.isBattleHost) enemyTurn();
-            else b.turn = 'enemy';
+            else b.turn = (b.php > 0) ? 'player' : 'enemy'; 
         }, 520);
     } 
     else if (data.action === 'enemy_attack') {
-        // The Enemy attacked us
         b.anim = true;
-        const targetIsMe = data.target === G.peerId || (G.isHost && data.target === 'host');
+        // Since I only receive this if I am the Partner, if it hit the Battle Host, it didn't hit me!
+        const targetIsMe = !data.targetIsBattleHost; 
         
         if (targetIsMe) {
-            if (b.php_shield >= data.dmg) b.php_shield -= data.dmg;
-            else { b.php -= (data.dmg - b.php_shield); b.php_shield = 0; }
+            if (b.php_shield >= data.dmg) b.php_shield -= data.dmg; else { b.php -= (data.dmg - b.php_shield); b.php_shield = 0; }
             G.playerHp = Math.max(0, b.php); G.playerShield = b.php_shield;
-            b.pshake = 18;
-            b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.4,val:data.dmg,col:'#ff8844',life:60});
+            b.pshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.4,val:data.dmg,col:'#ff8844',life:60});
             spawnParticles(canvas.width*0.28,canvas.height*0.4,'#ff8844',6);
             b.log.unshift(`${DINOS[b.ek].name} bites YOU for ${data.dmg}!`);
         } else {
-            if (b.cpShield >= data.dmg) b.cpShield -= data.dmg;
-            else { b.cpHp -= (data.dmg - b.cpShield); b.cpShield = 0; }
-            b.cshake = 18;
-            b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.65,val:data.dmg,col:'#ff8844',life:60});
+            if (b.cpShield >= data.dmg) b.cpShield -= data.dmg; else { b.cpHp -= (data.dmg - b.cpShield); b.cpShield = 0; }
+            b.cshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.65,val:data.dmg,col:'#ff8844',life:60});
             spawnParticles(canvas.width*0.28,canvas.height*0.65,'#ff8844',6);
             b.log.unshift(`${DINOS[b.ek].name} bites ${b.cpName} for ${data.dmg}!`);
         }
@@ -271,9 +261,7 @@ function processCoopBattleAction(data) {
                 sendCoop({ type: 'coop_sync', target: G.coop.partnerId, wheat: G.wheat });
                 b.log.unshift(`💀 Team Defeated! Lost ${pen} Buckets.`); b.res='lose';
             } else {
-                // If I am dead, turn skips me
-                if (b.isBattleHost) b.turn = b.php > 0 ? 'player' : 'partner';
-                else b.turn = b.php > 0 ? 'player' : 'partner';
+                b.turn = (b.cpHp > 0) ? 'partner' : 'player'; // Wait for Host to go next
             }
         }, 420);
     }
@@ -285,45 +273,32 @@ function processCoopBattleAction(data) {
 function enemyTurn(){
     const b=G.battle;if(b.res) return;
     b.anim=true; const en=DINOS[b.ek];
-    
-    // Calculate Enemy Base Damage
     let dmg = Math.max(1, Math.floor(en.atk * R_MULT[en.rarity]) + Math.floor(Math.random()*10)-5);
     if(b.ek === 'megalodon') dmg = 125 + Math.floor(Math.random() * 20); 
     else if(b.ek === 'indominus') dmg = 175 + Math.floor(Math.random() * 50);
 
-    // Apply 1.3x Co-op Modifier
-    if (b.isCoop) dmg = Math.floor(dmg * 1.3);
-
     if (b.isCoop) {
-        // AI randomly chooses between Player 1 and Player 2 (if alive)
+        dmg = Math.floor(dmg * 1.3); // Co-op modifier
         const canHitPlayer = b.php > 0;
         const canHitPartner = b.cpHp > 0;
-        let targetLocal = true;
+        let targetLocal = true; // Target Battle Host
         
         if (canHitPlayer && canHitPartner) targetLocal = Math.random() > 0.5;
         else if (canHitPartner) targetLocal = false;
 
         if (targetLocal) {
-            if (b.php_shield >= dmg) b.php_shield -= dmg;
-            else { b.php -= (dmg - b.php_shield); b.php_shield = 0; }
+            if (b.php_shield >= dmg) b.php_shield -= dmg; else { b.php -= (dmg - b.php_shield); b.php_shield = 0; }
             G.playerHp = Math.max(0, b.php); G.playerShield = b.php_shield;
-            b.pshake = 18;
-            b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.4,val:dmg,col:'#ff8844',life:60});
-            spawnParticles(canvas.width*0.28,canvas.height*0.4,'#ff8844',6);
-            b.log.unshift(`${en.name} bites YOU for ${dmg}!`);
+            b.pshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.4,val:dmg,col:'#ff8844',life:60});
+            spawnParticles(canvas.width*0.28,canvas.height*0.4,'#ff8844',6); b.log.unshift(`${en.name} bites YOU for ${dmg}!`);
         } else {
-            if (b.cpShield >= dmg) b.cpShield -= dmg;
-            else { b.cpHp -= (dmg - b.cpShield); b.cpShield = 0; }
-            b.cshake = 18;
-            b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.65,val:dmg,col:'#ff8844',life:60});
-            spawnParticles(canvas.width*0.28,canvas.height*0.65,'#ff8844',6);
-            b.log.unshift(`${en.name} bites ${b.cpName} for ${dmg}!`);
+            if (b.cpShield >= dmg) b.cpShield -= dmg; else { b.cpHp -= (dmg - b.cpShield); b.cpShield = 0; }
+            b.cshake = 18; b.dnums.push({x:canvas.width*0.28,y:canvas.height*0.65,val:dmg,col:'#ff8844',life:60});
+            spawnParticles(canvas.width*0.28,canvas.height*0.65,'#ff8844',6); b.log.unshift(`${en.name} bites ${b.cpName} for ${dmg}!`);
         }
         if(b.log.length>5)b.log.pop();
 
-        // Send outcome to partner
-        const tId = targetLocal ? (G.isHost ? 'host' : G.peerId) : G.coop.partnerId;
-        sendCoop({ type: 'coop_battle_action', target: G.coop.partnerId, action: 'enemy_attack', dmg: dmg, target: tId });
+        sendCoop({ type: 'coop_battle_action', target: G.coop.partnerId, action: 'enemy_attack', dmg: dmg, targetIsBattleHost: targetLocal });
 
         setTimeout(()=>{
             b.anim=false;
@@ -345,28 +320,18 @@ function enemyTurn(){
     spawnParticles(canvas.width*0.28,canvas.height*0.52,'#ff8844',6);
     setTimeout(()=>{
         b.anim=false;
-        if(b.php<=0){
-            const pen=Math.floor(G.wheat*0.2);G.wheat=Math.max(0,G.wheat-pen);
-            b.log.unshift(`💀 Defeated! Lost ${pen} Buckets.`);b.res='lose';
-        } else {b.turn='player';}
+        if(b.php<=0){ const pen=Math.floor(G.wheat*0.2);G.wheat=Math.max(0,G.wheat-pen); b.log.unshift(`💀 Defeated! Lost ${pen} Buckets.`);b.res='lose'; } 
+        else {b.turn='player';}
     },420);
 }
 
 function doRun() {
     const b=G.battle;if(b.res||b.anim) return;
 
-    if (b.isPvP) {
-        sendPvP({ type: 'pvp_action', target: b.opId, sender: (G.isHost ? 'host' : G.peer.id), action: 'run' });
-        b.log.unshift('You fled the friendly match!'); setTimeout(exitBattle, 500); return;
-    }
+    if (b.isPvP) { sendPvP({ type: 'pvp_action', target: b.opId, sender: (G.isHost ? 'host' : G.peer.id), action: 'run' }); b.log.unshift('You fled the friendly match!'); setTimeout(exitBattle, 500); return; }
+    if (b.isCoop) { sendCoop({ type: 'coop_battle_action', target: G.coop.partnerId, action: 'run' }); b.log.unshift('Team fled the battle safely!'); setTimeout(exitBattle, 500); return; }
 
-    if (b.isCoop) {
-        sendCoop({ type: 'coop_battle_action', target: G.coop.partnerId, action: 'run' });
-        b.log.unshift('Team fled the battle safely!'); setTimeout(exitBattle, 500); return;
-    }
-
-    if(Math.random()<0.62){b.log.unshift('Got away safely!');setTimeout(exitBattle,500);}
-    else{b.log.unshift("Can't escape!");b.turn='enemy';setTimeout(enemyTurn,350);}
+    if(Math.random()<0.62){b.log.unshift('Got away safely!');setTimeout(exitBattle,500);} else{b.log.unshift("Can't escape!");b.turn='enemy';setTimeout(enemyTurn,350);}
 }
 
 function exitBattle(){
@@ -382,29 +347,21 @@ function exitBattle(){
 
 // ── SPAWNING ──
 function spawnWilds(){
-    G.wilds =[];
-    const keys=Object.keys(DINOS).filter(k=>DINOS[k].lvl===G.level && DINOS[k].rarity!=='Boss');
+    G.wilds =[]; const keys=Object.keys(DINOS).filter(k=>DINOS[k].lvl===G.level && DINOS[k].rarity!=='Boss');
     for(let i=0;i<36;i++){
         let chosen=keys[0], acc=0; const tot=keys.reduce((sum,k)=>sum+DINOS[k].sp, 0); const rng=Math.random()*tot;
         for(const k of keys){acc+=DINOS[k].sp;if(rng<acc){chosen=k;break;}}
         for(let attempt=0;attempt<20;attempt++){
             const tx=Math.floor(Math.random()*WS), ty=Math.floor(Math.random()*WS);
-            if(worldMap[ty]&&worldMap[ty][tx]!==2){
-                G.wilds.push({key:chosen,x:tx*TS+TS/2,y:ty*TS+TS/2,anim:0,mt:Math.random()*90,dx:0,dy:0,face:1,isBoss:false});
-                break;
-            }
+            if(worldMap[ty]&&worldMap[ty][tx]!==2){ G.wilds.push({key:chosen,x:tx*TS+TS/2,y:ty*TS+TS/2,anim:0,mt:Math.random()*90,dx:0,dy:0,face:1,isBoss:false}); break; }
         }
     }
 }
 function spawnMega(){
     const bossKey = G.level === 1 ? 'megalodon' : 'indominus';
     for(let attempt=0;attempt<300;attempt++){
-        const tx=Math.floor(Math.random()*WS), ty=Math.floor(Math.random()*WS);
-        const isWater = worldMap[ty]&&worldMap[ty][tx]===2;
-        if((G.level===1 && ((!G.megaOnLand && isWater) || (G.megaOnLand && !isWater))) || (G.level===2 && !isWater)){
-            G.wilds.push({key:bossKey,x:tx*TS+TS/2,y:ty*TS+TS/2,anim:0,mt:0,dx:0,dy:0,face:1,isBoss:true});
-            return;
-        }
+        const tx=Math.floor(Math.random()*WS), ty=Math.floor(Math.random()*WS); const isWater = worldMap[ty]&&worldMap[ty][tx]===2;
+        if((G.level===1 && ((!G.megaOnLand && isWater) || (G.megaOnLand && !isWater))) || (G.level===2 && !isWater)){ G.wilds.push({key:bossKey,x:tx*TS+TS/2,y:ty*TS+TS/2,anim:0,mt:0,dx:0,dy:0,face:1,isBoss:true}); return; }
     }
 }
 spawnWilds(); spawnMega();
@@ -412,13 +369,8 @@ spawnWilds(); spawnMega();
 // ── UPDATE ──
 function update(){
     G.tick++;
-    if (G.playerHp <= 0 && G.state === 'world') {
-        G.playerHp = pMaxHp(); G.playerShield = 0; G.wheat = Math.max(0, Math.floor(G.wheat * 0.9));
-        G.player.x = WS/2*TS; G.player.y = WS/2*TS;
-    }
-    if(G.state === 'world' && (G.tick - G.lastDamageTick >= 120) && G.playerHp > 0 && G.playerHp < pMaxHp()){
-        if (G.tick % 150 === 0) G.playerHp = Math.min(pMaxHp(), G.playerHp + Math.max(1, Math.floor(pMaxHp() * 0.02)));
-    }
+    if (G.playerHp <= 0 && G.state === 'world') { G.playerHp = pMaxHp(); G.playerShield = 0; G.wheat = Math.max(0, Math.floor(G.wheat * 0.9)); G.player.x = WS/2*TS; G.player.y = WS/2*TS; }
+    if(G.state === 'world' && (G.tick - G.lastDamageTick >= 120) && G.playerHp > 0 && G.playerHp < pMaxHp()){ if (G.tick % 150 === 0) G.playerHp = Math.min(pMaxHp(), G.playerHp + Math.max(1, Math.floor(pMaxHp() * 0.02))); }
     if(G.tick % 300 === 0 && G.state === 'world') saveGame();
     if(G.encCd>0) G.encCd--; if(G.swapCd>0) G.swapCd--;
     if(G.state==='world') updateWorld(); else if(G.state==='battle') updateBattle();
@@ -432,13 +384,9 @@ function updateWorld(){
     if(G.keys['arrowright']||G.keys['d']||G.keys['ArrowRight']) dx+=spd;
     if(G.keys['arrowup']||G.keys['w']||G.keys['ArrowUp']) dy-=spd;
     if(G.keys['arrowdown']||G.keys['s']||G.keys['ArrowDown']) dy+=spd;
-    if(G.joy.on){
-        const jl=Math.sqrt(G.joy.dx*G.joy.dx+G.joy.dy*G.joy.dy);
-        if(jl>12){dx+=(G.joy.dx/jl)*spd;dy+=(G.joy.dy/jl)*spd;}
-    }
+    if(G.joy.on){ const jl=Math.sqrt(G.joy.dx*G.joy.dx+G.joy.dy*G.joy.dy); if(jl>12){dx+=(G.joy.dx/jl)*spd;dy+=(G.joy.dy/jl)*spd;} }
     if(dx&&dy){dx*=0.707;dy*=0.707;}
-    const nx=p.x+dx, ny=p.y+dy; const ttx=Math.floor(nx/TS), tty=Math.floor(ny/TS);
-    const canSwim=['spinosaurus','pterodactyl','megalodon','mosasaurus'].includes(p.dk);
+    const nx=p.x+dx, ny=p.y+dy; const ttx=Math.floor(nx/TS), tty=Math.floor(ny/TS); const canSwim=['spinosaurus','pterodactyl','megalodon','mosasaurus'].includes(p.dk);
     if(ttx>=0&&tty>=0&&ttx<WS&&tty<WS){ if(worldMap[tty][ttx]!==2||canSwim){p.x=nx;p.y=ny;} }
     p.x=Math.max(TS,Math.min((WS-1)*TS,p.x)); p.y=Math.max(TS,Math.min((WS-1)*TS,p.y));
     p.moving=!!(dx||dy); if(p.moving){p.anim++;if(dx>0)p.face=1;else if(dx<0)p.face=-1;}
@@ -447,41 +395,26 @@ function updateWorld(){
 
     const curTx = Math.floor(p.x/TS), curTy = Math.floor(p.y/TS);
     if(curTx>=0 && curTy>=0 && curTx<WS && curTy<WS && worldMap[curTy][curTx] === 4) {
-        if(G.tick % 30 === 0) {
-            let dmg = 15; if (G.playerShield >= dmg) G.playerShield -= dmg; else { G.playerHp -= (dmg - G.playerShield); G.playerShield = 0; }
-            G.lastDamageTick = G.tick; spawnParticles(p.x, p.y, '#ff4400', 8);
-        }
+        if(G.tick % 30 === 0) { let dmg = 15; if (G.playerShield >= dmg) G.playerShield -= dmg; else { G.playerHp -= (dmg - G.playerShield); G.playerShield = 0; } G.lastDamageTick = G.tick; spawnParticles(p.x, p.y, '#ff4400', 8); }
     }
 
     if(G.level === 1){
-        G.megaTimer--;
-        if(G.megaTimer <= 0){ G.megaOnLand = !G.megaOnLand; G.megaTimer = 3600; G.wilds = G.wilds.filter(w => w.key !== 'megalodon'); spawnMega(); }
+        G.megaTimer--; if(G.megaTimer <= 0){ G.megaOnLand = !G.megaOnLand; G.megaTimer = 3600; G.wilds = G.wilds.filter(w => w.key !== 'megalodon'); spawnMega(); }
     }
     if(G.level === 2){
-        if(G.volcanoActive <= 0){
-            G.volcanoTimer--; if(G.volcanoTimer <= 0){ G.volcanoActive = 1200; G.camShake = 60; G.volcanoTimer = 10800; }
-        } else {
-            G.volcanoActive--; if(G.volcanoActive % 40 === 0){ G.hazards.push({x: p.x + (Math.random()-0.5)*500, y: p.y + (Math.random()-0.5)*500, life: 75, maxLife: 75}); }
-        }
+        if(G.volcanoActive <= 0){ G.volcanoTimer--; if(G.volcanoTimer <= 0){ G.volcanoActive = 1200; G.camShake = 60; G.volcanoTimer = 10800; }
+        } else { G.volcanoActive--; if(G.volcanoActive % 40 === 0){ G.hazards.push({x: p.x + (Math.random()-0.5)*500, y: p.y + (Math.random()-0.5)*500, life: 75, maxLife: 75}); } }
         for(let i=G.hazards.length-1; i>=0; i--){
             const h = G.hazards[i]; h.life--;
             if(h.life <= 0){
-                if(Math.hypot(p.x - h.x, p.y - h.y) < 45) {
-                    let dmg = 25; if (G.playerShield >= dmg) G.playerShield -= dmg; else { G.playerHp -= (dmg - G.playerShield); G.playerShield = 0; }
-                    G.lastDamageTick = G.tick; spawnParticles(p.x, p.y, '#ff0000', 10);
-                }
+                if(Math.hypot(p.x - h.x, p.y - h.y) < 45) { let dmg = 25; if (G.playerShield >= dmg) G.playerShield -= dmg; else { G.playerHp -= (dmg - G.playerShield); G.playerShield = 0; } G.lastDamageTick = G.tick; spawnParticles(p.x, p.y, '#ff0000', 10); }
                 spawnParticles(h.x, h.y, '#ff6600', 25); G.hazards.splice(i, 1);
             }
         }
     }
     for(const w of G.wilds){
-        w.mt--;
-        if(w.mt<=0){
-            w.mt=50+Math.random()*100; const a=Math.random()*Math.PI*2, wsp=DINOS[w.key].spd*0.4;
-            w.dx=Math.cos(a)*wsp;w.dy=Math.sin(a)*wsp;
-        }
-        w.x+=w.dx;w.y+=w.dy; if(w.dx!==0) w.face=w.dx>0?1:-1;
-        w.x=Math.max(TS,Math.min((WS-1)*TS,w.x)); w.y=Math.max(TS,Math.min((WS-1)*TS,w.y)); w.anim++;
+        w.mt--; if(w.mt<=0){ w.mt=50+Math.random()*100; const a=Math.random()*Math.PI*2, wsp=DINOS[w.key].spd*0.4; w.dx=Math.cos(a)*wsp;w.dy=Math.sin(a)*wsp; }
+        w.x+=w.dx;w.y+=w.dy; if(w.dx!==0) w.face=w.dx>0?1:-1; w.x=Math.max(TS,Math.min((WS-1)*TS,w.x)); w.y=Math.max(TS,Math.min((WS-1)*TS,w.y)); w.anim++;
         const wtx=Math.floor(w.x/TS), wty=Math.floor(w.y/TS); const wCanSwim =['spinosaurus','pterodactyl','megalodon','mosasaurus'].includes(w.key);
         if(wtx>=0&&wty>=0&&wtx<WS&&wty<WS && worldMap[wty][wtx]===2 && !wCanSwim){ w.x -= w.dx || 0; w.y -= w.dy || 0; w.dx = w.dy = 0; }
     }
@@ -495,10 +428,7 @@ function updateWorld(){
                     const ks2=Object.keys(DINOS).filter(k=>DINOS[k].lvl===G.level && DINOS[k].rarity!=='Boss');
                     let ch=ks2[0],ac2=0; const tot2=ks2.reduce((sum,k)=>sum+DINOS[k].sp, 0); const r2=Math.random()*tot2;
                     for(const k of ks2){ac2+=DINOS[k].sp;if(r2<ac2){ch=k;break;}}
-                    for(let att=0;att<20;att++){
-                        const tx2=Math.floor(Math.random()*WS),ty2=Math.floor(Math.random()*WS);
-                        if(worldMap[ty2]&&worldMap[ty2][tx2]!==2){ G.wilds.push({key:ch,x:tx2*TS+TS/2,y:ty2*TS+TS/2,anim:0,mt:60,dx:0,dy:0,face:1,isBoss:false}); break; }
-                    }
+                    for(let att=0;att<20;att++){ const tx2=Math.floor(Math.random()*WS),ty2=Math.floor(Math.random()*WS); if(worldMap[ty2]&&worldMap[ty2][tx2]!==2){ G.wilds.push({key:ch,x:tx2*TS+TS/2,y:ty2*TS+TS/2,anim:0,mt:60,dx:0,dy:0,face:1,isBoss:false}); break; } }
                 },5000); break;
             }
         }
@@ -521,68 +451,40 @@ function updateBattle(){
     const b=G.battle; if(b.eshake>0) b.eshake--; if(b.pshake>0) b.pshake--; if(b.cshake>0) b.cshake--;
     b.dnums=b.dnums.filter(dn=>{dn.life--;return dn.life>0;});
 }
+
 // ── INPUT, CHEATS & GAME START ──
 function doCheatPrompt(){
     const code = window.prompt("Secret Developer Console:\nEnter command:");
-    if(!code) return;
-    const c = code.trim().toLowerCase();
-    if(c === 'dev_money') {
-        G.wheat += 999999; G.cheatsActive = true; addChatMessage('System', "Cheat Activated: +999,999 Buckets");
-    } else if(c === 'dev_dinos') {
-        for(let k in DINOS) G.discovered[k] = true; G.cheatsActive = true; addChatMessage('System', "Cheat Activated: All Dinos Unlocked");
-    } else if(c === 'dev_god') {
-        G.player.upg.hp = 99; G.player.upg.atk = 99; G.player.upg.spd = 99;
-        G.playerHp = pMaxHp(); G.cheatsActive = true; addChatMessage('System', "Cheat Activated: GOD MODE");
-    } else if(c === 'dev_lvl2') {
-        G.level = 2; G.discovered = {utahraptor: true}; G.player.dk = 'utahraptor';
-        generateWorld(); spawnWilds(); spawnMega(); G.playerHp = pMaxHp();
-        G.volcanoTimer = 10800; G.volcanoActive = 0; G.hazards =[];
-        G.cheatsActive = true; addChatMessage('System', "Cheat Activated: Teleported to Volcano Map");
-    }
+    if(!code) return; const c = code.trim().toLowerCase();
+    if(c === 'dev_money') { G.wheat += 999999; G.cheatsActive = true; addChatMessage('System', "Cheat Activated: +999,999 Buckets"); } 
+    else if(c === 'dev_dinos') { for(let k in DINOS) G.discovered[k] = true; G.cheatsActive = true; addChatMessage('System', "Cheat Activated: All Dinos Unlocked"); } 
+    else if(c === 'dev_god') { G.player.upg.hp = 99; G.player.upg.atk = 99; G.player.upg.spd = 99; G.playerHp = pMaxHp(); G.cheatsActive = true; addChatMessage('System', "Cheat Activated: GOD MODE"); } 
+    else if(c === 'dev_lvl2') { G.level = 2; G.discovered = {utahraptor: true}; G.player.dk = 'utahraptor'; generateWorld(); spawnWilds(); spawnMega(); G.playerHp = pMaxHp(); G.volcanoTimer = 10800; G.volcanoActive = 0; G.hazards =[]; G.cheatsActive = true; addChatMessage('System', "Cheat Activated: Teleported to Volcano Map"); }
 }
 
 window.addEventListener('keydown',e=>{
     G.keys[e.key]=true;G.keys[e.key.toLowerCase()]=true;
-    if(G.state==='intro') {
-        if(!window.activeSave) startGame(false);
-    }
+    if(G.state==='intro') { if(!window.activeSave) startGame(false); }
     if(e.key==='`' || e.key==='~') doCheatPrompt();
-
-    if (e.key === '/' && document.getElementById('chatBox').style.display !== 'flex' && G.state === 'world') {
-        e.preventDefault(); document.getElementById('chatBox').style.display = 'flex';
-        document.getElementById('chatInp').focus(); document.getElementById('chatMessages').style.pointerEvents = 'auto'; wakeChat();
-    }
+    if (e.key === '/' && document.getElementById('chatBox').style.display !== 'flex' && G.state === 'world') { e.preventDefault(); document.getElementById('chatBox').style.display = 'flex'; document.getElementById('chatInp').focus(); document.getElementById('chatMessages').style.pointerEvents = 'auto'; wakeChat(); }
 });
 window.addEventListener('keyup',e=>{ G.keys[e.key]=false;G.keys[e.key.toLowerCase()]=false; });
-canvas.addEventListener('mousemove',e=>{
-    const r=canvas.getBoundingClientRect(); G.mx=e.clientX-r.left;G.my=e.clientY-r.top;
-});
+canvas.addEventListener('mousemove',e=>{ const r=canvas.getBoundingClientRect(); G.mx=e.clientX-r.left;G.my=e.clientY-r.top; });
 canvas.addEventListener('click',e=>{
     if(document.getElementById('chatBox').style.display === 'flex' && e.clientY > 100) { closeChatUI(); return; }
     const r=canvas.getBoundingClientRect(); const cx=e.clientX-r.left, cy=e.clientY-r.top;
-    if(G.state==='intro'){
-        for(const b of G.btns){if(cx>=b.x&&cx<=b.x+b.w&&cy>=b.y&&cy<=b.y+b.h){b.act();return;}}
-        if(!window.activeSave) startGame(false);
-        return;
-    }
+    if(G.state==='intro'){ for(const b of G.btns){if(cx>=b.x&&cx<=b.x+b.w&&cy>=b.y&&cy<=b.y+b.h){b.act();return;}} if(!window.activeSave) startGame(false); return; }
     for(const b of G.btns){if(cx>=b.x&&cx<=b.x+b.w&&cy>=b.y&&cy<=b.y+b.h){b.act();return;}}
     if(G.state==='world' && cx<80 && cy<50) { doCheatPrompt(); return; }
 });
 canvas.addEventListener('touchstart',e=>{
     const r=canvas.getBoundingClientRect(); const t=e.touches[0]; const tx=t.clientX-r.left, ty=t.clientY-r.top;
-    if(G.state==='intro'){
-        for(const b of G.btns){if(tx>=b.x&&tx<=b.x+b.w&&ty>=b.y&&ty<=b.y+b.h){b.act();return;}}
-        if(!window.activeSave) startGame(false);
-        return;
-    }
+    if(G.state==='intro'){ for(const b of G.btns){if(tx>=b.x&&tx<=b.x+b.w&&ty>=b.y&&ty<=b.y+b.h){b.act();return;}} if(!window.activeSave) startGame(false); return; }
     for(const b of G.btns){if(tx>=b.x&&tx<=b.x+b.w&&ty>=b.y&&ty<=b.y+b.h){b.act();return;}}
     if(G.state==='world' && tx<80 && ty<50) { doCheatPrompt(); return; }
     if(G.state==='world'){G.joy.on=true;G.joy.sx=tx;G.joy.sy=ty;G.joy.dx=0;G.joy.dy=0;}
 },{passive:false});
-canvas.addEventListener('touchmove',e=>{
-    if(!G.joy.on)return; const r=canvas.getBoundingClientRect();const t=e.touches[0];
-    G.joy.dx=t.clientX-r.left-G.joy.sx; G.joy.dy=t.clientY-r.top-G.joy.sy;
-},{passive:false});
+canvas.addEventListener('touchmove',e=>{ if(!G.joy.on)return; const r=canvas.getBoundingClientRect();const t=e.touches[0]; G.joy.dx=t.clientX-r.left-G.joy.sx; G.joy.dy=t.clientY-r.top-G.joy.sy; },{passive:false});
 canvas.addEventListener('touchend',e=>{ G.joy.on=false;G.joy.dx=0;G.joy.dy=0; },{passive:false});
 
 function startGame(isNew = false) {
