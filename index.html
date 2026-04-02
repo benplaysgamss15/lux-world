@@ -11,18 +11,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>🦖 DinoWorld - Open World Survival Index</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:#000; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; font-family:'Courier New',Courier,monospace; }
-#gc { display:block; image-rendering:pixelated; cursor:crosshair; touch-action:none; }
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+}
+body { 
+    background: #000; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh; 
+    overflow: hidden; 
+    font-family: 'Courier New', Courier, monospace; 
+}
+#gc { 
+    display: block; 
+    image-rendering: pixelated; 
+    cursor: crosshair; 
+    touch-action: none; 
+}
 
 /* Chat Scrollbar Styling */
 .chat-msg {
-    background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px;
-    font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold;
-    text-shadow: 1px 1px 0 #000; word-wrap: break-word; flex-shrink: 0;
+    background: rgba(0,0,0,0.5); 
+    padding: 6px 10px; 
+    border-radius: 4px;
+    font-family: 'Courier New', monospace; 
+    font-size: 14px; 
+    font-weight: bold;
+    text-shadow: 1px 1px 0 #000; 
+    word-wrap: break-word; 
+    flex-shrink: 0;
+    transition: transform 0.2s ease-out; /* NEW: Added for smooth swiping */
 }
-#chatMessages::-webkit-scrollbar { width: 6px; }
-#chatMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+#chatMessages::-webkit-scrollbar { 
+    width: 6px; 
+}
+#chatMessages::-webkit-scrollbar-thumb { 
+    background: rgba(255,255,255,0.3); 
+    border-radius: 3px; 
+}
 </style>
 </head>
 <body>
@@ -49,7 +78,7 @@ body { background:#000; display:flex; justify-content:center; align-items:center
     </div>
 </div>
 
-<!-- NEW HTML CO-OP INFO MODAL -->
+<!-- HTML CO-OP INFO MODAL -->
 <div id="coopModal" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:360px; max-width:90%; z-index:250; background:rgba(15,35,25,0.95); border:2px solid #22ccaa; border-radius:12px; padding:20px; flex-direction:column; gap:12px; font-family:'Courier New',monospace; color:#fff; text-align:center; box-shadow:0 0 25px rgba(0,0,0,0.9);">
     <h2 style="color:#22ccaa; font-size: 18px; margin-bottom:0;">Make a friendship together!</h2>
     <p style="font-size: 14px; color:#aaa; margin-bottom:5px;">But how does it work?</p>
