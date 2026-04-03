@@ -772,37 +772,31 @@ function drawWorld(){
                 ctx.fill();
             }
             
-            // NEW: Render the Cave Entrance (Tile 5)
+            // NEW: Physical Solid Stone (Tile 7)
+            if (t === 7) {
+                ctx.fillStyle = '#444444';
+                ctx.fillRect(px, py, TS + 1, TS + 1);
+                ctx.fillStyle = '#333333';
+                ctx.fillRect(px + 4, py + 4, TS - 8, TS - 8);
+            }
+            
+            // NEW: Render the Cave Entrance Void (Tile 5)
             if (t === 5) {
-                ctx.fillStyle = '#111';
-                ctx.beginPath(); 
-                ctx.arc(px + TS/2, py + TS, TS * 1.5, Math.PI, 0); 
-                ctx.fill();
-                
-                ctx.fillStyle = '#050505';
-                ctx.beginPath(); 
-                ctx.arc(px + TS/2, py + TS, TS * 1.2, Math.PI, 0); 
-                ctx.fill();
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(px, py, TS + 1, TS + 1);
                 
                 ctx.fillStyle = '#888'; 
                 ctx.font = 'bold 10px Courier New'; 
                 ctx.textAlign = 'center';
-                ctx.fillText('CAVE', px + TS/2, py - TS * 0.8);
+                ctx.fillText('CAVE', px + TS/2, py - 5);
             }
             
             // NEW: Render the Mountain Entrance (Tile 6)
             if (t === 6) {
                 ctx.fillStyle = '#dddddd';
-                ctx.beginPath();
-                ctx.moveTo(px - TS, py + TS);
-                ctx.lineTo(px + TS/2, py - TS*2);
-                ctx.lineTo(px + TS*2, py + TS);
-                ctx.fill();
+                ctx.fillRect(px, py, TS + 1, TS + 1);
                 
                 if (!G.story.mountainKey) {
-                    ctx.fillStyle = '#222';
-                    ctx.fillRect(px - TS*0.2, py, TS*1.4, TS);
-                    
                     ctx.strokeStyle = '#880000'; 
                     ctx.lineWidth = 3;
                     ctx.beginPath(); 
@@ -817,15 +811,15 @@ function drawWorld(){
                     ctx.fillStyle = '#ff4444'; 
                     ctx.font = 'bold 10px Courier New'; 
                     ctx.textAlign = 'center';
-                    ctx.fillText('LOCKED', px + TS/2, py - 10);
+                    ctx.fillText('LOCKED', px + TS/2, py - 5);
                 } else {
                     ctx.fillStyle = '#050505';
-                    ctx.fillRect(px - TS*0.2, py, TS*1.4, TS);
+                    ctx.fillRect(px + TS * 0.1, py + TS * 0.1, TS * 0.8, TS * 0.8);
                     
                     ctx.fillStyle = '#44ff44'; 
                     ctx.font = 'bold 10px Courier New'; 
                     ctx.textAlign = 'center';
-                    ctx.fillText('ENTER', px + TS/2, py - 10);
+                    ctx.fillText('ENTER', px + TS/2, py - 5);
                 }
             }
         }
@@ -1087,11 +1081,13 @@ function drawHUD(){
         for (let tx2 = 0; tx2 < WS; tx2 += 2) {
             const tt = worldMap[ty2][tx2];
             let mmCol = '#4a7c3f';
-            if (G.level === 2) {
-                mmCol = tt === 2 ? '#8a251a' : tt === 1 ? '#1f1410' : tt === 3 ? '#5a3a2a' : tt === 4 ? '#ff2200' : '#3d2e25';
-            } else {
-                mmCol = tt === 2 ? '#1a6b8a' : tt === 1 ? '#2d5a27' : tt === 3 ? '#c8a85a' : '#4a7c3f';
-            }
+            
+            // NEW: Add Rock and Entrance Tiles to the Minimap
+            if (tt === 7) mmCol = '#444444';
+            else if (tt === 5 || tt === 6) mmCol = '#000000';
+            else if (G.level === 2) mmCol = tt === 2 ? '#8a251a' : tt === 1 ? '#1f1410' : tt === 3 ? '#5a3a2a' : tt === 4 ? '#ff2200' : '#3d2e25';
+            else mmCol = tt === 2 ? '#1a6b8a' : tt === 1 ? '#2d5a27' : tt === 3 ? '#c8a85a' : '#4a7c3f';
+            
             ctx.fillStyle = mmCol;
             ctx.fillRect(mmx + tx2*msc, mmy + ty2*msc, msc*2 + 0.5, msc*2 + 0.5);
         }
