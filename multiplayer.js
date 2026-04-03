@@ -1,6 +1,6 @@
 // ── CHAT SYSTEM & FILTER ──
 function filterMessage(msg) {
-    const badWords =['fuck', 'shit', 'bitch', 'asshole', 'damn', 'crap', 'dumbass', 'nigger', 'nigga', 'cunt', 'slut', 'whore', 'faggot', 'dick', 'cock', 'pussy', 'bastard'];
+    const badWords = ['fuck', 'shit', 'bitch', 'asshole', 'damn', 'crap', 'dumbass', 'nigger', 'nigga', 'cunt', 'slut', 'whore', 'faggot', 'dick', 'cock', 'pussy', 'bastard'];
     const leetMap = { '@':'a', '4':'a', '3':'e', '1':'i', '!':'i', '0':'o', '5':'s', '$':'s', '7':'t', '8':'b', '+':'t' };
     
     let leeted = msg.toLowerCase(); 
@@ -11,7 +11,9 @@ function filterMessage(msg) {
     let testStrClean = leeted.replace(/[\s\W_]+/g, ''); 
     
     for (let i = 0; i < badWords.length; i++) { 
-        if (testStrClean.includes(badWords[i])) return "****"; 
+        if (testStrClean.includes(badWords[i])) {
+            return "****"; 
+        }
     } 
     return msg; 
 }
@@ -22,7 +24,7 @@ function wakeChat() {
     clearTimeout(chatFadeTimer);
     
     chatFadeTimer = setTimeout(() => { 
-        if(document.getElementById('chatBox').style.display === 'none') {
+        if (document.getElementById('chatBox').style.display === 'none') {
             msgs.style.opacity = '0'; 
         }
     }, 8000);
@@ -33,7 +35,7 @@ function addChatMessage(sender, msg) {
     const msgEl = document.createElement('div');
     msgEl.className = 'chat-msg'; 
     
-    // NEW: Reply Highlight Logic
+    // NEW: Reply Highlight Logic (@Username)
     if (G.username && safeMsg.toLowerCase().includes('@' + G.username.toLowerCase())) {
         msgEl.style.borderLeft = '4px solid #ffaa00';
         msgEl.style.backgroundColor = 'rgba(80, 50, 0, 0.8)';
@@ -41,7 +43,14 @@ function addChatMessage(sender, msg) {
         msgEl.style.backgroundColor = 'rgba(0,0,0,0.5)';
     }
     
-    msgEl.style.color = sender === (G.username || 'You') ? '#aaddff' : (sender === 'System' ? '#ffff55' : '#ffddaa');
+    if (sender === (G.username || 'You')) {
+        msgEl.style.color = '#aaddff';
+    } else if (sender === 'System') {
+        msgEl.style.color = '#ffff55';
+    } else {
+        msgEl.style.color = '#ffddaa';
+    }
+    
     msgEl.innerText = sender + ': ' + safeMsg;
     
     // NEW: Swipe to Reply Logic
@@ -58,7 +67,9 @@ function addChatMessage(sender, msg) {
         if (!isSwiping) return;
         let currentX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
         let diff = currentX - startX;
-        if (diff < 0) { // Swipe left
+        
+        // Only allow swiping to the left
+        if (diff < 0) { 
             msgEl.style.transform = `translateX(${Math.max(diff, -80)}px)`;
         }
     };
@@ -67,17 +78,20 @@ function addChatMessage(sender, msg) {
         if (!isSwiping) return;
         isSwiping = false;
         msgEl.style.transition = 'transform 0.2s ease-out';
-        let currentX = e.type.includes('mouse') ? e.clientX : (e.changedTouches[0] ? e.changedTouches[0].clientX : startX);
+        
+        let currentX = e.type.includes('mouse') ? e.clientX : (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : startX);
         let diff = currentX - startX;
         
+        // If swiped far enough left, trigger the reply!
         if (diff < -40 && sender !== 'System') {
-            // Trigger Reply
             document.getElementById('chatBox').style.display = 'flex';
             document.getElementById('chatInp').focus();
             document.getElementById('chatMessages').style.pointerEvents = 'auto';
             document.getElementById('chatInp').value = '@' + sender + ' ';
             wakeChat();
         }
+        
+        // Snap back to original position
         msgEl.style.transform = 'translateX(0px)';
     };
 
@@ -96,6 +110,7 @@ function addChatMessage(sender, msg) {
     if (chatMsgs.children.length > 50) {
         chatMsgs.firstChild.remove(); 
     }
+    
     chatMsgs.scrollTop = chatMsgs.scrollHeight; 
     wakeChat();
 }
@@ -114,30 +129,35 @@ function closeChatUI() {
 
 function sendChatUI() {
     const msg = chatInp.value;
-    if(msg && msg.trim() !== '') {
+    
+    if (msg && msg.trim() !== '') {
         const safeName = G.username || 'You'; 
         addChatMessage(safeName, msg); 
         
         try {
-            if(G.isHost) { 
-                for(let id in G.conns) { 
-                    if(G.conns[id] && G.conns[id].open) {
+            if (G.isHost) { 
+                for (let id in G.conns) { 
+                    if (G.conns[id] && G.conns[id].open) {
                         G.conns[id].send({ type: 'chat', sender: safeName, msg: msg }); 
                     }
                 } 
             } else { 
-                if(G.conns['host'] && G.conns['host'].open) {
+                if (G.conns['host'] && G.conns['host'].open) {
                     G.conns['host'].send({ type: 'chat', sender: safeName, msg: msg }); 
                 }
             }
-        } catch(e) { console.error("Chat send error:", e); }
+        } catch(e) { 
+            console.error("Chat send error:", e); 
+        }
     } 
     closeChatUI();
 }
 
 chatSend.addEventListener('click', sendChatUI); 
 chatInp.addEventListener('keydown', (e) => { 
-    if(e.key === 'Enter') sendChatUI(); 
+    if (e.key === 'Enter') {
+        sendChatUI(); 
+    }
 });
 
 chatBox.addEventListener('touchstart', e => e.stopPropagation()); 
@@ -167,17 +187,22 @@ function showMpModal(mode) {
     mpUserInp.focus();
 }
 
-mpBtnCancel.addEventListener('click', () => mpModal.style.display = 'none');
+mpBtnCancel.addEventListener('click', () => {
+    mpModal.style.display = 'none';
+});
 
 mpBtnConfirm.addEventListener('click', () => {
     const u = mpUserInp.value.trim(); 
     G.username = u !== '' ? u : (mpMode === 'host' ? 'Host' : 'Guest'); 
     mpModal.style.display = 'none';
-    if(mpMode === 'host') {
+    
+    if (mpMode === 'host') {
         hostGame(); 
     } else { 
         const r = mpRoomInp.value.trim(); 
-        if(r) joinGame(r); 
+        if (r) {
+            joinGame(r); 
+        }
     }
 });
 
@@ -185,7 +210,7 @@ mpModal.addEventListener('touchstart', e => e.stopPropagation());
 mpModal.addEventListener('touchmove', e => e.stopPropagation()); 
 mpModal.addEventListener('click', e => e.stopPropagation());
 
-// ── NEW CUSTOM CO-OP MODAL HANDLER ──
+// ── CO-OP MODAL HANDLER ──
 const coopModal = document.getElementById('coopModal');
 const coopBtnCancel = document.getElementById('coopBtnCancel');
 const coopBtnConfirm = document.getElementById('coopBtnConfirm');
@@ -203,7 +228,9 @@ coopBtnCancel.addEventListener('click', () => {
 
 coopBtnConfirm.addEventListener('click', () => { 
     coopModal.style.display = 'none'; 
-    if(coopPendingAction) coopPendingAction(); 
+    if (coopPendingAction) {
+        coopPendingAction(); 
+    }
     coopPendingAction = null; 
 });
 
@@ -211,18 +238,25 @@ coopModal.addEventListener('touchstart', e => e.stopPropagation());
 coopModal.addEventListener('touchmove', e => e.stopPropagation()); 
 coopModal.addEventListener('click', e => e.stopPropagation());
 
-
 // ── MULTIPLAYER LOGIC & PVP/COOP PACKET ROUTING ──
 function leaveGame() {
-    if(G.sessionTimer) { clearTimeout(G.sessionTimer); G.sessionTimer = null; }
-    if(syncInterval) { clearInterval(syncInterval); syncInterval = null; }
+    if (G.sessionTimer) { 
+        clearTimeout(G.sessionTimer); 
+        G.sessionTimer = null; 
+    }
+    if (syncInterval) { 
+        clearInterval(syncInterval); 
+        syncInterval = null; 
+    }
     
-    for(let id in G.conns) { 
-        if(G.conns[id]) G.conns[id].close(); 
+    for (let id in G.conns) { 
+        if (G.conns[id]) {
+            G.conns[id].close(); 
+        }
     } 
     G.conns = {}; 
     
-    if(G.peer) { 
+    if (G.peer) { 
         G.peer.destroy(); 
         G.peer = null; 
     }
@@ -231,12 +265,16 @@ function leaveGame() {
     G.otherPlayers = {}; 
     G.isHost = false;
     
-    if(G.coop.partnerId) breakCoop("Disconnected from room."); 
+    if (G.coop.partnerId) {
+        breakCoop("Disconnected from room."); 
+    }
     addChatMessage('System', 'Disconnected from room.');
 }
 
 function startSessionTimer() { 
-    if(G.sessionTimer) clearTimeout(G.sessionTimer); 
+    if (G.sessionTimer) {
+        clearTimeout(G.sessionTimer); 
+    }
     G.sessionTimer = setTimeout(() => { 
         addChatMessage('System', '1-hour limit reached. Disconnecting.'); 
         leaveGame(); 
@@ -246,23 +284,37 @@ function startSessionTimer() {
 function sendPvP(data) { 
     try { 
         if (G.isHost) { 
-            if (data.target === 'host') handlePvPMessage(data); 
-            else if (G.conns[data.target] && G.conns[data.target].open) G.conns[data.target].send(data); 
+            if (data.target === 'host') {
+                handlePvPMessage(data); 
+            } else if (G.conns[data.target] && G.conns[data.target].open) {
+                G.conns[data.target].send(data); 
+            }
         } else { 
-            if (G.conns['host'] && G.conns['host'].open) G.conns['host'].send(data); 
+            if (G.conns['host'] && G.conns['host'].open) {
+                G.conns['host'].send(data); 
+            }
         } 
-    } catch(e) {} 
+    } catch(e) {
+        console.error("PvP Send Error:", e);
+    } 
 }
 
 function sendCoop(data) { 
     try { 
         if (G.isHost) { 
-            if (data.target === 'host') handleCoopMessage(data); 
-            else if (G.conns[data.target] && G.conns[data.target].open) G.conns[data.target].send(data); 
+            if (data.target === 'host') {
+                handleCoopMessage(data); 
+            } else if (G.conns[data.target] && G.conns[data.target].open) {
+                G.conns[data.target].send(data); 
+            }
         } else { 
-            if (G.conns['host'] && G.conns['host'].open) G.conns['host'].send(data); 
+            if (G.conns['host'] && G.conns['host'].open) {
+                G.conns['host'].send(data); 
+            }
         } 
-    } catch(e) {} 
+    } catch(e) {
+        console.error("Coop Send Error:", e);
+    } 
 }
 
 function handlePvPMessage(data) {
@@ -279,7 +331,9 @@ function handlePvPMessage(data) {
             startPvPBattle(data.sender, data.stats, true); 
             G.pvp.reqTo = null; 
         } else { 
-            if (G.pvp.reqTo === data.sender) addChatMessage('System', data.name + ' denied PvP.'); 
+            if (G.pvp.reqTo === data.sender) {
+                addChatMessage('System', data.name + ' denied PvP.'); 
+            }
             G.pvp.reqTo = null; 
             G.pvp.cd = 1800; 
         }
@@ -303,12 +357,14 @@ function handlePvPMessage(data) {
                 b.dnums.push({x:canvas.width*0.28, y:canvas.height*0.52, val:dmg, col:'#ff8844', life:60}); 
                 b.log.unshift(`${b.ename} attacks for ${dmg}!`); 
                 
-                if(b.log.length>5) b.log.pop(); 
+                if (b.log.length > 5) {
+                    b.log.pop(); 
+                }
                 spawnParticles(canvas.width*0.28, canvas.height*0.52, '#ff8844', 6);
                 
-                setTimeout(()=>{ 
+                setTimeout(() => { 
                     b.anim = false; 
-                    if(b.php <= 0){ 
+                    if (b.php <= 0) { 
                         b.log.unshift(`💀 You lost the friendly match!`); 
                         b.res = 'lose'; 
                     } else { 
@@ -335,7 +391,9 @@ function handleCoopMessage(data) {
         if (data.accept && G.coop.reqTo === data.sender) { 
             bondWithPartner(data.sender, data.name); 
         } else { 
-            if (G.coop.reqTo === data.sender) addChatMessage('System', data.name + ' denied the Co-op request.'); 
+            if (G.coop.reqTo === data.sender) {
+                addChatMessage('System', data.name + ' denied the Co-op request.'); 
+            }
             G.coop.reqTo = null; 
         }
     } else if (data.type === 'coop_break') { 
@@ -369,14 +427,26 @@ function handleCoopMessage(data) {
             G.player.y = WS/2*TS; 
             G.volcanoTimer = 10800; 
             G.volcanoActive = 0; 
-            G.hazards =[]; 
+            G.hazards = []; 
             addChatMessage('System', 'Partner defeated Megalodon! Welcome to Map 2!');
+        }
+    } 
+    // NEW: Handle forcing the partner into the Sub-Maps!
+    else if (data.type === 'coop_zone') {
+        if (data.room === 'cave' || data.room === 'mountain') {
+            G.overworldX = G.player.x;
+            G.overworldY = G.player.y;
+            // Both players are teleported to the center of the new room while it fades in
+            loadZone(data.room, WS/2*TS, WS/2*TS);
+        } else if (data.room === 'main') {
+            loadZone('main', G.overworldX, G.overworldY);
         }
     }
 }
 
 function hostGame() {
-    if(G.peer) return; 
+    if (G.peer) return; 
+    
     const pid = Math.floor(1000 + Math.random() * 9000).toString(); 
     G.peer = new Peer('dinoworld-' + pid); 
     G.isHost = true;
@@ -403,11 +473,17 @@ function hostGame() {
                         }
                     } 
                 } else if (data.type.startsWith('pvp_')) { 
-                    if (data.target === 'host') handlePvPMessage(data); 
-                    else if (G.conns[data.target] && G.conns[data.target].open) G.conns[data.target].send(data); 
+                    if (data.target === 'host') {
+                        handlePvPMessage(data); 
+                    } else if (G.conns[data.target] && G.conns[data.target].open) {
+                        G.conns[data.target].send(data); 
+                    }
                 } else if (data.type.startsWith('coop_')) { 
-                    if (data.target === 'host') handleCoopMessage(data); 
-                    else if (G.conns[data.target] && G.conns[data.target].open) G.conns[data.target].send(data); 
+                    if (data.target === 'host') {
+                        handleCoopMessage(data); 
+                    } else if (G.conns[data.target] && G.conns[data.target].open) {
+                        G.conns[data.target].send(data); 
+                    }
                 }
             });
             
@@ -416,19 +492,27 @@ function hostGame() {
                     G.battle.log.unshift("Opponent disconnected!"); 
                     G.battle.res = 'win'; 
                 }
-                if (G.coop.partnerId === c.peer) breakCoop("Partner disconnected!"); 
+                if (G.coop.partnerId === c.peer) {
+                    breakCoop("Partner disconnected!"); 
+                }
                 delete G.otherPlayers[c.peer]; 
                 delete G.conns[c.peer]; 
                 addChatMessage('System', 'A player left the party.');
             });
         });
     });
-    G.peer.on('error', err => { addChatMessage('System', 'Connection error.'); leaveGame(); }); 
+    
+    G.peer.on('error', err => { 
+        addChatMessage('System', 'Connection error.'); 
+        leaveGame(); 
+    }); 
+    
     startSyncLoop();
 }
 
 function joinGame(pid) {
-    if(G.peer) return; 
+    if (G.peer) return; 
+    
     G.peer = new Peer(); 
     G.isHost = false;
     
@@ -442,26 +526,43 @@ function joinGame(pid) {
             startSessionTimer();
             
             c.on('data', data => {
-                if (data.type === 'sync') G.otherPlayers = data.players; 
-                else if (data.type === 'chat') addChatMessage(data.sender, data.msg); 
-                else if (data.type.startsWith('pvp_')) handlePvPMessage(data); 
-                else if (data.type.startsWith('coop_')) handleCoopMessage(data);
+                if (data.type === 'sync') {
+                    G.otherPlayers = data.players; 
+                } else if (data.type === 'chat') {
+                    addChatMessage(data.sender, data.msg); 
+                } else if (data.type.startsWith('pvp_')) {
+                    handlePvPMessage(data); 
+                } else if (data.type.startsWith('coop_')) {
+                    handleCoopMessage(data);
+                }
             });
             
             c.on('close', () => { 
                 addChatMessage('System', 'Host closed the room.'); 
-                if (G.state === 'battle' && G.battle.isPvP) G.state = 'world'; 
-                if (G.coop.partnerId) breakCoop("Host closed the room."); 
+                if (G.state === 'battle' && G.battle.isPvP) {
+                    G.state = 'world'; 
+                }
+                if (G.coop.partnerId) {
+                    breakCoop("Host closed the room."); 
+                }
                 leaveGame(); 
             });
         });
     });
-    G.peer.on('error', err => { addChatMessage('System', 'Could not find room.'); leaveGame(); }); 
+    
+    G.peer.on('error', err => { 
+        addChatMessage('System', 'Could not find room.'); 
+        leaveGame(); 
+    }); 
+    
     startSyncLoop();
 }
 
 function startSyncLoop() {
-    if(syncInterval) clearInterval(syncInterval);
+    if (syncInterval) {
+        clearInterval(syncInterval);
+    }
+    
     syncInterval = setInterval(() => {
         try {
             const myData = { 
@@ -477,9 +578,12 @@ function startSyncLoop() {
                 hp: G.playerHp, 
                 mhp: pMaxHp() 
             };
+            
             if (G.isHost) {
                 const allPlayers = { host: myData }; 
-                for (let id in G.otherPlayers) allPlayers[id] = G.otherPlayers[id];
+                for (let id in G.otherPlayers) {
+                    allPlayers[id] = G.otherPlayers[id];
+                }
                 for (let id in G.conns) { 
                     if (G.conns[id] && G.conns[id].open) {
                         G.conns[id].send({ type: 'sync', players: allPlayers }); 
