@@ -1,4 +1,4 @@
-p// ── SAVE & LOAD SYSTEM ──
+// ── SAVE & LOAD SYSTEM ──
 window.activeSave = null;
 
 function loadSaveData() {
