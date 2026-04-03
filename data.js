@@ -57,8 +57,8 @@ const DINOS = {
     indominus: { name: 'Indominus Rex', rarity: 'Boss', col: '#f8f8ff', acc: '#c0c0c0', hp: 600, atk: 85, spd: 4.5, sz: 55, sp: 0, rw: 1333, em: '🦖', lvl: 2 }
 };
 
-const worldMap = [];
-const tileClr = [];
+let worldMap = [];
+let tileClr = [];
 
 const GCLR = ['#4a7c3f', '#528942', '#3d6b35', '#6a9c5f', '#508240'];
 const FCLR = ['#2d5a27', '#3a6b33', '#254c20', '#1e4518'];
@@ -89,9 +89,14 @@ const G = {
     pvp: { closeId: null, reqTo: null, reqFrom: null, reqFromName: '', reqFromStats: null, cd: 0, msgTimer: 0, opponentId: null },
     
     coop: { partnerId: null, partnerName: '', reqTo: null, reqFrom: null, reqFromName: '' },
-    
-    // NEW: Solo Stash variable added right here!
     soloStash: null,
+
+    // NEW VARIABLES FOR MAPS & STORY PROGRESSION
+    room: 'main', // Can be 'main', 'cave', or 'mountain'
+    fade: { active: false, opacity: 0, targetRoom: null, targetX: 0, targetY: 0, phase: 'out' },
+    story: { cavePuzzleSolved: false, mountainKey: false, miniBossesDefeated: 0 },
+    overworldX: 0, // Remembers where you were on the main map before entering a cave!
+    overworldY: 0,
 
     keys: {},
     joy: { on: false, sx: 0, sy: 0, dx: 0, dy: 0 },
