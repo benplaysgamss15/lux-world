@@ -1,5 +1,3 @@
-Data.js
-
 const canvas = document.getElementById('gc');
 const ctx = canvas.getContext('2d');
 
