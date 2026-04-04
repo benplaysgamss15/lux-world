@@ -1,3 +1,5 @@
+Game.js
+
 // ── SAVE & LOAD SYSTEM ──
 window.activeSave = null;
 
@@ -104,30 +106,6 @@ function generateWorld(){
             else if(t === 4) tileClr[y][x] = VRED[Math.abs(x*7+y*3) % VRED.length];
         }
     }
-
-    // NEW: Inject Map Entrances!
-    if (G.level === 1 && G.room === 'main') {
-        
-        // Mountain Entrance (Tile 6) Top Left
-        const mx = 20;
-        const my = 20;
-        for(let dy = -2; dy <= 2; dy++) {
-            for(let dx = -2; dx <= 2; dx++) {
-                worldMap[my+dy][mx+dx] = 0; // Clear the terrain around it
-            }
-        }
-        worldMap[my][mx] = 6; 
-        
-        // Cave Entrance (Tile 5) Bottom Right
-        const cx = WS - 20;
-        const cy = WS - 20;
-        for(let dy = -2; dy <= 2; dy++) {
-            for(let dx = -2; dx <= 2; dx++) {
-                worldMap[cy+dy][cx+dx] = 0; // Clear the terrain around it
-            }
-        }
-        worldMap[cy][cx] = 5; 
-    }
 }
 generateWorld();
 
@@ -168,7 +146,6 @@ function bondWithPartner(id, name) {
     G.coop.partnerId = id; 
     G.coop.partnerName = name; 
     G.level = 1; 
-    G.room = 'main'; // Ensure we reset room state
     G.wheat = 70; 
     G.player.dk = 'raptor'; 
     G.discovered = {raptor:true}; 
@@ -192,7 +169,6 @@ function breakCoop(reason) {
     G.coop.partnerName = '';
     
     restoreSoloData(); // Retrieve solo progress from background!
-    G.room = 'main'; // Reset back to main just in case they were in a cave
     
     generateWorld(); 
     spawnWilds(); 
@@ -258,7 +234,7 @@ function startCoopBattle(ek, isBoss, isHostOfBattle, partnerStats) {
     const en = DINOS[ek]; 
     G.state = 'battle'; 
     
-    // 1.55x Co-op Boss Buff applied here!
+    // NEW: 1.55x Co-op Boss Buff applied here!
     let eHP = Math.floor(en.hp * R_MULT[en.rarity] * 1.55); 
     
     G.battle = {
@@ -557,7 +533,7 @@ function enemyTurn(){
     else if(b.ek === 'indominus') dmg = 175 + Math.floor(Math.random() * 50);
 
     if (b.isCoop) {
-        // 1.55x Co-op Enemy Damage Buff!
+        // NEW: 1.55x Co-op Enemy Damage Buff!
         dmg = Math.floor(dmg * 1.55); 
         
         const canHitPlayer = b.php > 0; 
@@ -587,7 +563,7 @@ function enemyTurn(){
             if (b.cpShield >= dmg) {
                 b.cpShield -= dmg; 
             } else { 
-                b.cpHp -= (data.dmg - b.cpShield); 
+                b.cpHp -= (dmg - b.cpShield); 
                 b.cpShield = 0; 
             } 
             b.cshake = 18; 
@@ -711,8 +687,7 @@ function spawnWilds(){
         for(let attempt=0; attempt<20; attempt++){
             const tx = Math.floor(Math.random() * WS);
             const ty = Math.floor(Math.random() * WS);
-            // Ensure no spawning on entrances (Tiles 5 & 6)
-            if(worldMap[ty] && worldMap[ty][tx] !== 2 && worldMap[ty][tx] !== 5 && worldMap[ty][tx] !== 6){ 
+            if(worldMap[ty] && worldMap[ty][tx] !== 2){ 
                 G.wilds.push({key: chosen, x: tx*TS + TS/2, y: ty*TS + TS/2, anim: 0, mt: Math.random()*90, dx: 0, dy: 0, face: 1, isBoss: false}); 
                 break; 
             }
@@ -740,24 +715,6 @@ spawnMega();
 // ── UPDATE ──
 function update(){
     G.tick++;
-    
-    // NEW: FADE ANIMATION LOGIC
-    if (G.fade.active) {
-        if (G.fade.phase === 'out') {
-            G.fade.opacity += 0.05;
-            if (G.fade.opacity >= 1) {
-                G.fade.opacity = 1;
-                executeZoneSwap(); 
-                G.fade.phase = 'in';
-            }
-        } else if (G.fade.phase === 'in') {
-            G.fade.opacity -= 0.05;
-            if (G.fade.opacity <= 0) {
-                G.fade.opacity = 0;
-                G.fade.active = false;
-            }
-        }
-    }
     
     if (G.playerHp <= 0 && G.state === 'world') { 
         G.playerHp = pMaxHp(); 
@@ -797,10 +754,6 @@ function update(){
 
 function updateWorld(){
     if(G.camShake > 0) G.camShake--;
-    
-    // Freeze movement if screen is fading
-    if(G.fade.active) return; 
-
     const p = G.player; 
     let dx = 0, dy = 0; 
     const spd = pSpd();
@@ -830,32 +783,6 @@ function updateWorld(){
     const canSwim = ['spinosaurus','pterodactyl','megalodon','mosasaurus'].includes(p.dk);
     
     if(ttx >= 0 && tty >= 0 && ttx < WS && tty < WS){ 
-        
-        // NEW: Check if touching Cave Entrance
-        if (worldMap[tty][ttx] === 5) {
-            G.overworldX = p.x;
-            G.overworldY = p.y - TS * 2; 
-            if(G.coop.partnerId) sendCoop({ type: 'coop_zone', room: 'cave' });
-            loadZone('cave', WS/2*TS, WS/2*TS); 
-            return;
-        }
-        
-        // NEW: Check if touching Mountain Entrance
-        if (worldMap[tty][ttx] === 6) {
-            if (!G.story.mountainKey) {
-                p.x = p.x - dx * 2; 
-                p.y = p.y - dy * 2; 
-                if(G.tick % 60 === 0) addChatMessage('System', 'The Mountain is locked. Defeat the Cave Spider to get the key.');
-                return;
-            } else {
-                G.overworldX = p.x;
-                G.overworldY = p.y + TS * 2; 
-                if(G.coop.partnerId) sendCoop({ type: 'coop_zone', room: 'mountain' });
-                loadZone('mountain', WS/2*TS, WS/2*TS); 
-                return;
-            }
-        }
-        
         if(worldMap[tty][ttx] !== 2 || canSwim){
             p.x = nx;
             p.y = ny;
@@ -894,7 +821,7 @@ function updateWorld(){
         }
     }
 
-    if(G.level === 1 && G.room === 'main'){
+    if(G.level === 1){
         G.megaTimer--; 
         if(G.megaTimer <= 0){ 
             G.megaOnLand = !G.megaOnLand; 
@@ -999,7 +926,7 @@ function updateWorld(){
                         for(let att=0; att<20; att++){ 
                             const tx2 = Math.floor(Math.random() * WS);
                             const ty2 = Math.floor(Math.random() * WS); 
-                            if(worldMap[ty2] && worldMap[ty2][tx2] !== 2 && worldMap[ty2][tx2] !== 5 && worldMap[ty2][tx2] !== 6){ 
+                            if(worldMap[ty2] && worldMap[ty2][tx2] !== 2){ 
                                 G.wilds.push({key: ch, x: tx2*TS + TS/2, y: ty2*TS + TS/2, anim: 0, mt: 60, dx: 0, dy: 0, face: 1, isBoss: false}); 
                                 break; 
                             } 
@@ -1212,7 +1139,6 @@ function startGame(isNew = false) {
         G.megaOnLand = s.megaOnLand || false;
         
         window.activeSave = null;
-        G.room = 'main';
         generateWorld(); 
         spawnWilds(); 
         spawnMega();
@@ -1244,7 +1170,6 @@ function startGame(isNew = false) {
         G.megaOnLand = false; 
         G.cheatsActive = false;
         
-        G.room = 'main';
         G.coop = { partnerId: null, partnerName: '', reqTo: null, reqFrom: null, reqFromName: '' }; 
         G.soloStash = null;
         
@@ -1256,7 +1181,6 @@ function startGame(isNew = false) {
         G.cam.y = Math.max(0, Math.min(WS*TS - canvas.height, G.player.y - canvas.height/2));
     } else {
         G.playerHp = pMaxHp();
-        G.room = 'main';
         G.cam.x = Math.max(0, Math.min(WS*TS - canvas.width, G.player.x - canvas.width/2)); 
         G.cam.y = Math.max(0, Math.min(WS*TS - canvas.height, G.player.y - canvas.height/2));
     }
