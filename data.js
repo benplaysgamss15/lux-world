@@ -42,7 +42,7 @@ const DINOS = {
     carnotaurus: { name: 'Carnotaurus', rarity: 'Epic', col: '#9a3a4a', acc: '#7a1a2a', hp: 175, atk: 58, spd: 5.0, sz: 34, sp: 0.018, rw: 128, em: '🦖', lvl: 1 },
     indoraptor: { name: 'Indoraptor', rarity: 'Legendary', col: '#1a1020', acc: '#3a1040', hp: 280, atk: 72, spd: 5.5, sz: 36, sp: 0.035, rw: 240, em: '🦖', lvl: 1 },
     therizinosaurus: { name: 'Therizinosaurus', rarity: 'Legendary', col: '#2a5a4a', acc: '#1a3a2a', hp: 320, atk: 62, spd: 2.8, sz: 44, sp: 0.025, rw: 293, em: '🦕', lvl: 1 },
-
+    megalodon: {name:'Megalodon', rarity:'Boss', col:'#1a3060',acc:'#0a1540',hp:525,atk:55,spd:3.5,sz:64,sp:0, rw:667,em:'🦈', lvl:1},
 
     // LEVEL 2 DINOS
     utahraptor: { name: 'Utahraptor', rarity: 'Common', col: '#8b5a2b', acc: '#5c3a21', hp: 120, atk: 30, spd: 4.8, sz: 22, sp: 0.15, rw: 20, em: '🦖', lvl: 2 },
