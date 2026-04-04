@@ -10,29 +10,25 @@ G.story = { cavePuzzleSolved: false, mountainKey: false, miniBoss1: false, miniB
 G.overworldX = WS/2 * TS;
 G.overworldY = WS/2 * TS;
 G.nearNPC = null;
-G.dialogue = { active: false, queue: [], step: 0 };
+G.dialogue = { active: false, queue: [], step: 0, speaker: '', text: '' };
 G.puzzleUI = { active: false };
-G.mountainTimer = 90 * 60; // 90 seconds at 60fps
+G.mountainTimer = 90 * 60; 
 
 // ── 2. INJECT NEW DINOS INTO THE INDEX ──
-// Tag all existing Level 1 dinos to only spawn in the main overworld
 for (let key in DINOS) {
     if (DINOS[key].lvl === 1) {
         DINOS[key].zone = 'main';
     }
 }
-// Push Megalodon to Map 2 temporarily so Panda is the Map 1 Boss
 if (DINOS.megalodon) {
     DINOS.megalodon.lvl = 3; 
 }
 
 Object.assign(DINOS, {
-    // Cave Enemies (Zone: cave)
     troodon: {name:'Troodon', rarity:'Common', col:'#3a3a3a', acc:'#111111', hp:110, atk:35, spd:4.8, sz:18, sp:0.1, rw:20, em:'🦖', lvl:1, zone:'cave'},
     arthropleura: {name:'Arthropleura', rarity:'Rare', col:'#4a2a1a', acc:'#2a1a0a', hp:160, atk:45, spd:2.5, sz:22, sp:0.08, rw:35, em:'🐛', lvl:1, zone:'cave'},
     spider_boss: {name:'Cave Spider', rarity:'Boss', col:'#111111', acc:'#880000', hp:450, atk:60, spd:3.8, sz:45, sp:0, rw:600, em:'🕷️', lvl:1, zone:'cave'},
     
-    // Mountain Enemies (Zone: mountain)
     cryolophosaurus: {name:'Cryolopho', rarity:'Rare', col:'#88ccff', acc:'#4488cc', hp:180, atk:45, spd:3.8, sz:28, sp:0.08, rw:45, em:'🦖', lvl:1, zone:'mountain'},
     yutyrannus: {name:'Yutyrannus', rarity:'Epic', col:'#eeeeff', acc:'#aabbcc', hp:260, atk:65, spd:3.2, sz:38, sp:0.04, rw:110, em:'🦖', lvl:1, zone:'mountain'},
     miniboss_1: {name:'Ice Guard', rarity:'Boss', col:'#aaddff', acc:'#ffffff', hp:350, atk:55, spd:3.0, sz:40, sp:0, rw:200, em:'🛡️', lvl:1, zone:'mountain'},
@@ -63,7 +59,7 @@ const NPCS = [
     {
         id: 'yeahitsm3',
         room: 'main',
-        x: 0, y: 0, // Dynamically placed safely on the sand later
+        x: 0, y: 0, 
         name: 'yeahitsm3',
         oc: {body:'#44aaee', head:'#ffeebb', legs:'#111111', neck:'#ffeebb', tail:'#44aaee'},
         hat: 'bucket', 
@@ -87,38 +83,38 @@ generateWorld = function() {
         
         const mid = Math.floor(WS/2);
         
-        // 1. Force the Mountain onto safe Grass at Top-Left
+        // 1. Force the Mountain onto Top-Left
         const mx = mid - 25;
         const my = mid - 25;
         for (let dy = -3; dy <= 3; dy++) {
             for (let dx = -3; dx <= 3; dx++) {
-                worldMap[my+dy][mx+dx] = 0; // Force Grass
+                worldMap[my+dy][mx+dx] = 0; 
                 tileClr[my+dy][mx+dx] = '#4a7c3f';
             }
         }
-        worldMap[my][mx] = 6; // Mountain Entrance
+        worldMap[my][mx] = 6; 
         G.mountX = mx * TS;
         G.mountY = my * TS;
         
-        // 2. Force the Cave onto safe Grass at Bottom-Right
+        // 2. Force the Cave onto Bottom-Right
         const cx = mid + 25;
         const cy = mid + 25;
         for (let dy = -3; dy <= 3; dy++) {
             for (let dx = -3; dx <= 3; dx++) {
-                worldMap[cy+dy][cx+dx] = 0; // Force Grass
+                worldMap[cy+dy][cx+dx] = 0; 
                 tileClr[cy+dy][cx+dx] = '#4a7c3f';
             }
         }
-        worldMap[cy][cx] = 5; // Cave Entrance
+        worldMap[cy][cx] = 5; 
         G.caveX = cx * TS;
         G.caveY = cy * TS;
         
-        // 3. Force yeahitsm3 onto safe Sand at the Middle-Right
+        // 3. Force yeahitsm3 onto Sand at the Middle-Right
         const nx = mid + 35;
         const ny = mid;
         for (let dy = -2; dy <= 2; dy++) {
             for (let dx = -2; dx <= 2; dx++) {
-                worldMap[ny+dy][nx+dx] = 3; // Force Sand
+                worldMap[ny+dy][nx+dx] = 3; 
                 tileClr[ny+dy][nx+dx] = '#c8a85a';
             }
         }
@@ -142,31 +138,27 @@ function buildCaveMap() {
             const dist = Math.sqrt(cx*cx + cy*cy) / (WS*0.46);
             
             if (dist > 0.4) {
-                worldMap[y][x] = 10; // Cave Wall
+                worldMap[y][x] = 10; 
                 tileClr[y][x] = '#3a3a3a'; 
             } else {
-                worldMap[y][x] = 8; // Cave Floor
+                worldMap[y][x] = 8; 
                 tileClr[y][x] = '#1a1a1a'; 
             }
             
-            // The Waterfall splitting the cave
             if (y === Math.floor(WS/2) && dist <= 0.4) {
                 if (G.story.cavePuzzleSolved) {
-                    worldMap[y][x] = 13; // Bridge
+                    worldMap[y][x] = 13; 
                     tileClr[y][x] = '#5c4033'; 
                 } else {
-                    worldMap[y][x] = 2; // Water
+                    worldMap[y][x] = 2; 
                     tileClr[y][x] = '#1a6b8a'; 
                 }
             }
         }
     }
     
-    // Add Exit Door at bottom
     worldMap[Math.floor(WS/2) + 15][Math.floor(WS/2)] = 12; 
     tileClr[Math.floor(WS/2) + 15][Math.floor(WS/2)] = '#000000';
-    
-    // Add Puzzle Terminal
     worldMap[Math.floor(WS/2) + 2][Math.floor(WS/2)] = 16; 
     tileClr[Math.floor(WS/2) + 2][Math.floor(WS/2)] = '#aaaaaa';
 }
@@ -181,15 +173,14 @@ function buildMountainMap() {
             const dist = Math.sqrt(cx*cx + cy*cy) / (WS*0.46);
             
             if (dist > 0.4) {
-                worldMap[y][x] = 15; // Ice Wall
+                worldMap[y][x] = 15; 
                 tileClr[y][x] = '#88aadd'; 
             } else {
-                worldMap[y][x] = 9; // Snow Floor
+                worldMap[y][x] = 9; 
                 tileClr[y][x] = '#ffffff'; 
             }
         }
     }
-    // Add Exit Door at bottom
     worldMap[Math.floor(WS/2) + 15][Math.floor(WS/2)] = 12; 
     tileClr[Math.floor(WS/2) + 15][Math.floor(WS/2)] = '#000000';
 }
@@ -202,14 +193,12 @@ spawnWilds = function() {
     G.wilds = [];
     
     if (G.room === 'main') {
-        // Only spawn Zone: Main dinos
         const keys = Object.keys(DINOS).filter(k => DINOS[k].lvl === G.level && DINOS[k].rarity !== 'Boss' && DINOS[k].zone === 'main');
         for (let i = 0; i < 36; i++) {
             let chosen = keys[Math.floor(Math.random() * keys.length)];
             for (let attempt = 0; attempt < 20; attempt++) {
                 const tx = Math.floor(Math.random() * WS);
                 const ty = Math.floor(Math.random() * WS);
-                // Make sure they don't spawn on the entrance tiles (5 and 6)
                 if (worldMap[ty] && worldMap[ty][tx] !== 2 && worldMap[ty][tx] !== 5 && worldMap[ty][tx] !== 6) {
                     G.wilds.push({key: chosen, x: tx*TS + TS/2, y: ty*TS + TS/2, anim: 0, mt: Math.random()*90, dx: 0, dy: 0, face: 1, isBoss: false});
                     break;
@@ -220,7 +209,7 @@ spawnWilds = function() {
         for (let i = 0; i < 15; i++) {
             const tx = Math.floor(Math.random() * WS); 
             const ty = Math.floor(Math.random() * WS);
-            if (worldMap[ty] && worldMap[ty][tx] === 8) { // Cave floor only
+            if (worldMap[ty] && worldMap[ty][tx] === 8) { 
                 const key = Math.random() > 0.5 ? 'troodon' : 'arthropleura';
                 G.wilds.push({key: key, x: tx*TS + TS/2, y: ty*TS + TS/2, anim: 0, mt: 60, dx: 0, dy: 0, face: 1, isBoss: false});
             }
@@ -232,19 +221,17 @@ spawnWilds = function() {
         for (let i = 0; i < 15; i++) {
             const tx = Math.floor(Math.random() * WS); 
             const ty = Math.floor(Math.random() * WS);
-            if (worldMap[ty] && worldMap[ty][tx] === 9) { // Snow floor only
+            if (worldMap[ty] && worldMap[ty][tx] === 9) { 
                 const key = Math.random() > 0.5 ? 'cryolophosaurus' : 'yutyrannus';
                 G.wilds.push({key: key, x: tx*TS + TS/2, y: ty*TS + TS/2, anim: 0, mt: 60, dx: 0, dy: 0, face: 1, isBoss: false});
             }
         }
-        // Spawn Mini Bosses
         if (!G.story.miniBoss1) {
             G.wilds.push({key: 'miniboss_1', x: (WS/2 - 5) * TS, y: (WS/2 - 5) * TS, anim: 0, mt: 9999, dx: 0, dy: 0, face: 1, isBoss: true});
         }
         if (!G.story.miniBoss2) {
             G.wilds.push({key: 'miniboss_2', x: (WS/2 + 5) * TS, y: (WS/2 - 5) * TS, anim: 0, mt: 9999, dx: 0, dy: 0, face: 1, isBoss: true});
         }
-        // Spawn Panda
         if (G.story.miniBoss1 && G.story.miniBoss2 && !G.story.mainBossDefeated) {
             G.wilds.push({key: 'panda', x: WS/2 * TS, y: (WS/2 - 15) * TS, anim: 0, mt: 9999, dx: 0, dy: 0, face: 1, isBoss: true});
         }
@@ -263,7 +250,6 @@ function triggerFade(roomName, targetX, targetY) {
 }
 
 const origUpdate = update;
-
 update = function() {
     if (G.fade.active) {
         if (G.fade.phase === 'out') {
@@ -272,7 +258,6 @@ update = function() {
                 G.fade.opacity = 1;
                 
                 try {
-                    // Perform the actual room swap!
                     G.room = G.fade.targetRoom;
                     G.player.x = G.fade.targetX;
                     G.player.y = G.fade.targetY;
@@ -288,7 +273,6 @@ update = function() {
                     console.error(e);
                 }
                 
-                // Fade back in
                 G.fade.phase = 'in';
             }
         } else if (G.fade.phase === 'in') {
@@ -302,14 +286,13 @@ update = function() {
     
     origUpdate();
     
-    // Mountain Falling Spike Event
     if (G.room === 'mountain') {
         G.mountainTimer--;
         if (G.mountainTimer <= 120 && G.mountainTimer % 10 === 0) {
             G.camShake = 15;
         }
         if (G.mountainTimer <= 0) {
-            G.mountainTimer = 90 * 60; // Reset 90s
+            G.mountainTimer = 90 * 60; 
             addChatMessage('System', 'The mountain rumbles! Watch out for falling spikes!');
             for (let i = 0; i < 30; i++) {
                 G.hazards.push({x: G.player.x + (Math.random()-0.5)*800, y: G.player.y + (Math.random()-0.5)*800, life: 100, maxLife: 100});
@@ -319,9 +302,7 @@ update = function() {
 };
 
 const origUpdateWorld = updateWorld;
-
 updateWorld = function() {
-    // Freeze player if talking, solving puzzle, or fading
     if (G.fade.active || G.dialogue.active || G.puzzleUI.active) return; 
 
     origUpdateWorld();
@@ -329,15 +310,14 @@ updateWorld = function() {
     const tx = Math.floor(G.player.x / TS);
     const ty = Math.floor(G.player.y / TS);
     
-    // Collision Triggers for Entrances
     if (worldMap[ty] && worldMap[ty][tx] === 5 && G.room === 'main') {
         G.overworldX = G.player.x; 
-        G.overworldY = G.player.y - TS * 2; // Bounce them slightly off the door for return
+        G.overworldY = G.player.y - TS * 2; 
         triggerFade('cave', WS/2 * TS, (Math.floor(WS/2) + 12) * TS);
     }
     else if (worldMap[ty] && worldMap[ty][tx] === 6 && G.room === 'main') {
         if (!G.story.mountainKey) {
-            G.player.y += TS; // Bounce back
+            G.player.y += TS; 
             if (G.tick % 60 === 0) addChatMessage('System', 'Locked! Defeat the Cave Spider to get the key.');
         } else {
             G.overworldX = G.player.x; 
@@ -345,11 +325,10 @@ updateWorld = function() {
             triggerFade('mountain', WS/2 * TS, (Math.floor(WS/2) + 12) * TS);
         }
     }
-    else if (worldMap[ty] && worldMap[ty][tx] === 12) { // Exit Tile
+    else if (worldMap[ty] && worldMap[ty][tx] === 12) { 
         triggerFade('main', G.overworldX, G.overworldY);
     }
     
-    // Check NPC Distances
     G.nearNPC = null;
     for (const npc of NPCS) {
         if (npc.room === G.room) {
@@ -359,7 +338,6 @@ updateWorld = function() {
         }
     }
     
-    // Check Puzzle Terminal
     if (worldMap[ty] && worldMap[ty][tx] === 16) {
         G.nearNPC = 'terminal';
     }
@@ -370,9 +348,8 @@ updateWorld = function() {
 const origDrawWorld = drawWorld;
 
 drawWorld = function() {
-    origDrawWorld(); // Let original run
+    origDrawWorld(); 
     
-    // NOW draw our specific new tiles over the map
     const sx0 = Math.floor(G.cam.x / TS) - 1;
     const sy0 = Math.floor(G.cam.y / TS) - 1;
     const sx1 = sx0 + Math.ceil(canvas.width / TS) + 2;
@@ -384,12 +361,11 @@ drawWorld = function() {
             const py = ty * TS - G.cam.y;
             const t = worldMap[ty][tx];
             
-            // Draw Specific Graphic Overrides
             if (t >= 5) {
                 ctx.fillStyle = tileClr[ty][tx] || '#000';
                 ctx.fillRect(px, py, TS + 1, TS + 1);
                 
-                if (t === 5) { // Cave Entrance
+                if (t === 5) { 
                     ctx.fillStyle = '#111';
                     ctx.beginPath(); ctx.arc(px + TS/2, py + TS, TS, Math.PI, 0); ctx.fill();
                     ctx.fillStyle = '#050505';
@@ -397,7 +373,7 @@ drawWorld = function() {
                     ctx.fillStyle = '#888'; ctx.font = 'bold 10px Courier New'; ctx.textAlign = 'center';
                     ctx.fillText('CAVE', px + TS/2, py - 5);
                 } 
-                else if (t === 6) { // Mountain Entrance
+                else if (t === 6) { 
                     ctx.fillStyle = '#ffffff';
                     ctx.beginPath(); ctx.moveTo(px - TS/2, py + TS); ctx.lineTo(px + TS/2, py - TS); ctx.lineTo(px + TS*1.5, py + TS); ctx.fill();
                     
@@ -410,11 +386,11 @@ drawWorld = function() {
                         ctx.fillStyle = '#050505'; ctx.fillRect(px + 5, py + 5, TS - 10, TS - 10);
                     }
                 }
-                else if (t === 12) { // Exit Door
+                else if (t === 12) { 
                     ctx.fillStyle = '#dddddd'; ctx.font = 'bold 10px Courier New'; ctx.textAlign = 'center';
                     ctx.fillText('EXIT', px + TS/2, py + TS/2);
                 }
-                else if (t === 16) { // Terminal
+                else if (t === 16) { 
                     ctx.fillStyle = '#44aaff'; ctx.fillRect(px + 10, py + 10, TS - 20, TS - 20);
                 }
             }
@@ -422,8 +398,25 @@ drawWorld = function() {
     }
 };
 
-const origRender = render;
+const origDrawHat = drawHat;
+drawHat = function(type, cx, cy, sc) {
+    const s = sc || 1;
+    if (type === 'rabbit_bucket') {
+        origDrawHat('bucket', cx, cy, sc); 
+        ctx.save(); ctx.translate(cx, cy);
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.ellipse(-6*s, -28*s, 3*s, 10*s, -0.2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(6*s, -28*s, 3*s, 10*s, 0.2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#00aaff';
+        ctx.beginPath(); ctx.ellipse(-6*s, -28*s, 1.5*s, 7*s, -0.2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(6*s, -28*s, 1.5*s, 7*s, 0.2, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    } else {
+        origDrawHat(type, cx, cy, sc);
+    }
+};
 
+const origRender = render;
 render = function() {
     origRender();
     
@@ -434,18 +427,12 @@ render = function() {
         ctx.save();
         ctx.translate(-G.cam.x, -G.cam.y);
         
-        // Draw NPCs and Visuals (Blanket, Parasol)
         for (const npc of NPCS) {
             if (npc.room === G.room) {
-                
-                // Draw yeahitsm3's setup!
                 if (npc.id === 'yeahitsm3') {
-                    // Blanket
                     ctx.fillStyle = '#cc4444'; ctx.fillRect(npc.x - 30, npc.y - 10, 60, 40);
                     ctx.fillStyle = '#ffffff'; ctx.fillRect(npc.x - 15, npc.y - 10, 10, 40); ctx.fillRect(npc.x + 5, npc.y - 10, 10, 40);
-                    // Parasol Pole
                     ctx.fillStyle = '#aa8855'; ctx.fillRect(npc.x + 20, npc.y - 60, 4, 60);
-                    // Parasol Top
                     ctx.fillStyle = '#ffaa00'; ctx.beginPath(); ctx.arc(npc.x + 20, npc.y - 60, 40, Math.PI, 0); ctx.fill();
                 }
                 
@@ -455,43 +442,40 @@ render = function() {
                 ctx.fillText(npc.name, npc.x, npc.y - 45);
             }
         }
-        
         ctx.restore();
         
-        // Draw Interaction Prompt (Moved UP to avoid joystick)
+        // MOVED HIGHER TO AVOID JOYSTICK
         if (G.nearNPC && !G.dialogue.active && !G.puzzleUI.active) {
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 18px Courier New';
             ctx.textAlign = 'center';
-            ctx.fillText('Press [E] or Click to Interact', W/2, H - 250); 
+            ctx.fillText('Press [E] or Click to Interact', W/2, H - 280); 
         }
         
-        // Draw Dialogue Box (Moved UP to avoid joystick)
         if (G.dialogue.active) {
-            rr(W/2 - 250, H - 220, 500, 100, 8, 'rgba(0,0,0,0.85)', '#44aa44', 2);
+            rr(W/2 - 250, H - 250, 500, 100, 8, 'rgba(0,0,0,0.85)', '#44aa44', 2);
             ctx.fillStyle = '#44ff44';
             ctx.font = 'bold 16px Courier New';
             ctx.textAlign = 'left';
-            ctx.fillText(G.dialogue.speaker + ":", W/2 - 230, H - 190);
+            ctx.fillText(G.dialogue.speaker + ":", W/2 - 230, H - 220);
             
             ctx.fillStyle = '#ffffff';
             ctx.font = '14px Courier New';
             
             let txt = G.dialogue.text;
             if(txt.length > 55) {
-                ctx.fillText(txt.substring(0, 55), W/2 - 230, H - 160);
-                ctx.fillText(txt.substring(55), W/2 - 230, H - 140);
+                ctx.fillText(txt.substring(0, 55), W/2 - 230, H - 190);
+                ctx.fillText(txt.substring(55), W/2 - 230, H - 170);
             } else {
-                ctx.fillText(txt, W/2 - 230, H - 160);
+                ctx.fillText(txt, W/2 - 230, H - 190);
             }
             
             ctx.fillStyle = '#aaaaaa';
             ctx.font = '10px Courier New';
             ctx.textAlign = 'right';
-            ctx.fillText('Click to continue ▼', W/2 + 230, H - 130);
+            ctx.fillText('Click to continue ▼', W/2 + 230, H - 160);
         }
         
-        // Draw Puzzle UI
         if (G.puzzleUI.active) {
             rr(W/2 - 150, H/2 - 100, 300, 200, 8, 'rgba(20,20,50,0.95)', '#4488ff', 2);
             ctx.fillStyle = '#44aaff';
@@ -507,7 +491,7 @@ render = function() {
                 G.story.cavePuzzleSolved = true;
                 G.puzzleUI.active = false;
                 addChatMessage('System', 'You spliced the wires! The bridge is active.');
-                generateWorld(); // Refresh map to show bridge
+                generateWorld(); 
             });
             
             btn(W/2 - 80, H/2 + 50, 160, 30, 'Leave', '#aa4444', '#fff', () => {
@@ -516,7 +500,6 @@ render = function() {
             });
         }
         
-        // FADE OVERLAY
         if (G.fade.active) {
             ctx.fillStyle = `rgba(0,0,0,${G.fade.opacity})`;
             ctx.fillRect(0, 0, W, H);
@@ -524,7 +507,6 @@ render = function() {
     }
 };
 
-// Override HUD Minimap Dynamically
 const origDrawHUD = drawHUD;
 drawHUD = function() {
     origDrawHUD(); 
@@ -537,7 +519,7 @@ drawHUD = function() {
         for(let tx2=0; tx2<WS; tx2+=2){
             const tt = worldMap[ty2][tx2];
             
-            // Draw custom Minimap colors over the default ones
+            // MINIMAP FIX: Draws specific bright squares for Entrances
             if (tt >= 5) {
                 let mmCol = '#000';
                 if (tt === 10 || tt === 14) mmCol = '#666'; 
@@ -545,6 +527,10 @@ drawHUD = function() {
                 if (tt === 8 || tt === 7) mmCol = '#222'; 
                 if (tt === 9) mmCol = '#fff'; 
                 if (tt === 13) mmCol = '#8b4513'; 
+                
+                // Entrances stand out on the minimap
+                if (tt === 5) mmCol = '#000000'; // Cave entrance is black
+                if (tt === 6) mmCol = '#ffffff'; // Mountain entrance is white
                 
                 ctx.fillStyle = mmCol;
                 ctx.fillRect(mmx+tx2*msc, mmy+ty2*msc, msc*2+0.5, msc*2+0.5);
@@ -575,7 +561,7 @@ function triggerInteraction() {
     if (G.dialogue.active) {
         G.dialogue.step++;
         if (G.dialogue.step >= G.dialogue.queue.length) {
-            G.dialogue.active = false; // End conversation
+            G.dialogue.active = false; 
         } else {
             G.dialogue.speaker = G.dialogue.queue[G.dialogue.step].speaker;
             G.dialogue.text = G.dialogue.queue[G.dialogue.step].text;
@@ -593,4 +579,11 @@ function triggerInteraction() {
         G.dialogue.speaker = G.dialogue.queue[0].speaker;
         G.dialogue.text = G.dialogue.queue[0].text;
     }
+}
+
+// ── THE CRITICAL FIX: REGENERATE MAP ON SCRIPT LOAD ──
+if (G.state === 'world') {
+    generateWorld();
+    spawnWilds();
+    if(G.level === 1) spawnMega();
 }
