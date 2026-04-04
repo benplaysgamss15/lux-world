@@ -11,6 +11,7 @@ G.overworldX = WS/2 * TS;
 G.overworldY = WS/2 * TS;
 G.nearNPC = null;
 G.dialogue = { active: false, queue: [], step: 0, speaker: '', text: '' };
+G.puzzleUI = { active: false };
 G.mountainTimer = 90 * 60; 
 
 // NEW: Wire Puzzle State
@@ -31,6 +32,11 @@ for (let key in DINOS) {
     }
 }
 
+// Push Megalodon to Level 3 so he is hidden from Level 1
+if (DINOS.megalodon) {
+    DINOS.megalodon.lvl = 3; 
+}
+
 Object.assign(DINOS, {
     troodon: {name:'Troodon', rarity:'Common', col:'#3a3a3a', acc:'#111111', hp:110, atk:35, spd:4.8, sz:18, sp:0.1, rw:20, em:'🦖', lvl:1, zone:'cave'},
     arthropleura: {name:'Arthropleura', rarity:'Rare', col:'#4a2a1a', acc:'#2a1a0a', hp:160, atk:45, spd:2.5, sz:22, sp:0.08, rw:35, em:'🐛', lvl:1, zone:'cave'},
@@ -48,7 +54,7 @@ const NPCS = [
     {
         id: 'notnoob',
         room: 'cave',
-        x: (WS/2 - 12) * TS, // Moved to bottom left corner
+        x: (WS/2 - 12) * TS, // Bottom left corner of the cave
         y: (WS/2 + 12) * TS, 
         name: 'notnoob',
         oc: {body:'#ffcc00', head:'#ffcc00', legs:'#ccaa00', neck:'#ffcc00', tail:'#ffcc00'},
@@ -86,7 +92,7 @@ const origGenerateWorld = generateWorld;
 
 generateWorld = function() {
     if (G.room === 'main') {
-        origGenerateWorld(); 
+        origGenerateWorld(); // Draw the normal Isla Uno
         
         const mid = Math.floor(WS/2);
         
@@ -165,13 +171,10 @@ function buildCaveMap() {
         }
     }
     
-    // Terminal
-    worldMap[Math.floor(WS/2) - 3][Math.floor(WS/2)] = 16; 
-    tileClr[Math.floor(WS/2) - 3][Math.floor(WS/2)] = '#aaaaaa';
-    
-    // Exit
-    worldMap[Math.floor(WS/2) + 15][Math.floor(WS/2)] = 12; 
+    worldMap[Math.floor(WS/2) + 15][Math.floor(WS/2)] = 12; // Exit
     tileClr[Math.floor(WS/2) + 15][Math.floor(WS/2)] = '#000000';
+    worldMap[Math.floor(WS/2) - 3][Math.floor(WS/2)] = 16; // Terminal
+    tileClr[Math.floor(WS/2) - 3][Math.floor(WS/2)] = '#aaaaaa';
 }
 
 function buildMountainMap() {
@@ -192,7 +195,7 @@ function buildMountainMap() {
             }
         }
     }
-    worldMap[Math.floor(WS/2) + 15][Math.floor(WS/2)] = 12; 
+    worldMap[Math.floor(WS/2) + 15][Math.floor(WS/2)] = 12; // Exit
     tileClr[Math.floor(WS/2) + 15][Math.floor(WS/2)] = '#000000';
 }
 
@@ -225,7 +228,7 @@ spawnWilds = function() {
                 G.wilds.push({key: key, x: tx*TS + TS/2, y: ty*TS + TS/2, anim: 0, mt: 60, dx: 0, dy: 0, face: 1, isBoss: false});
             }
         }
-        if (!G.story.mountainKey) { // Spider stays in his arena at the top
+        if (!G.story.mountainKey) {
             G.wilds.push({key: 'spider_boss', x: WS/2 * TS, y: (WS/2 - 15) * TS, anim: 0, mt: 9999, dx: 0, dy: 0, face: 1, isBoss: true});
         }
     } else if (G.room === 'mountain') {
@@ -243,6 +246,13 @@ spawnWilds = function() {
             G.wilds.push({key: 'panda', x: WS/2 * TS, y: (WS/2 - 15) * TS, anim: 0, mt: 9999, dx: 0, dy: 0, face: 1, isBoss: true});
         }
     }
+};
+
+// Override spawnMega to physically block Megalodon from spawning on Map 1!
+const origSpawnMega = spawnMega;
+spawnMega = function() {
+    if (G.level === 1) return; // Do NOT spawn Megalodon. He is gone.
+    origSpawnMega(); 
 };
 
 // Override Exit Battle to drop the key!
@@ -403,7 +413,6 @@ drawWorld = function() {
                 ctx.fillStyle = tileClr[ty][tx] || '#000';
                 ctx.fillRect(px, py, TS + 1, TS + 1);
                 
-                // Add Pebble Textures to Cave Floor
                 if (t === 8 && (tx * 17 + ty * 23) % 7 === 0) {
                     ctx.fillStyle = '#111';
                     ctx.beginPath(); ctx.arc(px + 10, py + 10, 3, 0, Math.PI*2); ctx.fill();
@@ -429,7 +438,6 @@ drawWorld = function() {
                 else if (t === 16) { 
                     ctx.fillStyle = '#44aaff'; ctx.fillRect(px + 10, py + 10, TS - 20, TS - 20);
                 }
-                // Draw 3-Block thick Animated Waterfall!
                 else if (t === 17) {
                     ctx.fillStyle = '#1a6b8a'; ctx.fillRect(px, py, TS+1, TS+1);
                     ctx.fillStyle = 'rgba(255,255,255,0.4)';
@@ -477,14 +485,12 @@ render = function() {
                     ctx.fillStyle = '#ffaa00'; ctx.beginPath(); ctx.arc(npc.x + 20, npc.y - 60, 40, Math.PI, 0); ctx.fill();
                 }
                 
-                // Make notnoob visibly hurt (laying down!)
                 if (npc.id === 'notnoob') {
                     ctx.save();
                     ctx.translate(npc.x, npc.y);
-                    ctx.rotate(Math.PI / 2); // Rotate 90 degrees to lie on the floor
+                    ctx.rotate(Math.PI / 2); 
                     drawDino('raptor', 0, 0, -1, 0, 1.25, 1, npc.oc);
                     drawHat(npc.hat, 0, -25, 1.1);
-                    // Draw medical cross
                     ctx.fillStyle = 'white'; ctx.fillRect(-10, -20, 20, 20);
                     ctx.fillStyle = 'red'; ctx.fillRect(-2, -18, 4, 16); ctx.fillRect(-8, -12, 16, 4);
                     ctx.restore();
@@ -501,24 +507,23 @@ render = function() {
         
         if (G.nearNPC && !G.dialogue.active && !G.wirePuzzle.active) {
             ctx.fillStyle = '#ffffff'; ctx.font = 'bold 18px Courier New'; ctx.textAlign = 'center';
-            ctx.fillText('Press [E] or Click to Interact', W/2, H/2 + 100); 
+            ctx.fillText('Press [E] or Click to Interact', W/2, H/2 - 180); 
         }
         
         if (G.dialogue.active) {
-            rr(W/2 - 250, H/2 + 50, 500, 100, 8, 'rgba(0,0,0,0.85)', '#44aa44', 2);
+            rr(W/2 - 250, H/2 - 250, 500, 100, 8, 'rgba(0,0,0,0.85)', '#44aa44', 2);
             ctx.fillStyle = '#44ff44'; ctx.font = 'bold 16px Courier New'; ctx.textAlign = 'left';
-            ctx.fillText(G.dialogue.speaker + ":", W/2 - 230, H/2 + 80);
+            ctx.fillText(G.dialogue.speaker + ":", W/2 - 230, H/2 - 220);
             ctx.fillStyle = '#ffffff'; ctx.font = '14px Courier New';
             let txt = G.dialogue.text;
             if(txt.length > 55) {
-                ctx.fillText(txt.substring(0, 55), W/2 - 230, H/2 + 110);
-                ctx.fillText(txt.substring(55), W/2 - 230, H/2 + 130);
-            } else { ctx.fillText(txt, W/2 - 230, H/2 + 110); }
+                ctx.fillText(txt.substring(0, 55), W/2 - 230, H/2 - 190);
+                ctx.fillText(txt.substring(55), W/2 - 230, H/2 - 170);
+            } else { ctx.fillText(txt, W/2 - 230, H/2 - 190); }
             ctx.fillStyle = '#aaaaaa'; ctx.font = '10px Courier New'; ctx.textAlign = 'right';
-            ctx.fillText('Click to continue ▼', W/2 + 230, H/2 + 140);
+            ctx.fillText('Click to continue ▼', W/2 + 230, H/2 - 160);
         }
         
-        // DRAW THE WIRE PUZZLE
         if (G.wirePuzzle.active) {
             const bx = W/2 - 200; const by = H/2 - 150;
             rr(bx, by, 400, 300, 8, 'rgba(20,20,50,0.95)', '#4488ff', 2);
@@ -526,27 +531,21 @@ render = function() {
             ctx.fillText('POWER TERMINAL: CONNECT WIRES', W/2, by + 30);
             
             G.wirePuzzle.nodes.forEach(n => {
-                // Left Node
                 ctx.fillStyle = n.col; ctx.beginPath(); ctx.arc(bx + 50, by + n.ly, 15, 0, Math.PI*2); ctx.fill();
-                // Right Node
                 ctx.fillStyle = n.col; ctx.beginPath(); ctx.arc(bx + 350, by + n.ry, 15, 0, Math.PI*2); ctx.fill();
-                // Draw Connection Line
                 if (n.connected) {
                     ctx.strokeStyle = n.col; ctx.lineWidth = 6;
                     ctx.beginPath(); ctx.moveTo(bx + 50, by + n.ly); ctx.lineTo(bx + 350, by + n.ry); ctx.stroke();
                 }
             });
             
-            // Draw current dragging line
             if (G.wirePuzzle.selected !== null) {
                 const sn = G.wirePuzzle.nodes.find(n => n.id === G.wirePuzzle.selected);
                 ctx.strokeStyle = sn.col; ctx.lineWidth = 6;
                 ctx.beginPath(); ctx.moveTo(bx + 50, by + sn.ly); ctx.lineTo(G.mx, G.my); ctx.stroke();
             }
             
-            btn(W/2 - 60, by + 250, 120, 30, 'Leave', '#aa4444', '#fff', () => {
-                G.wirePuzzle.active = false; G.player.y += TS; 
-            });
+            btn(W/2 - 60, by + 250, 120, 30, 'Leave', '#aa4444', '#fff', () => { G.wirePuzzle.active = false; G.player.y += TS; });
         }
         
         if (G.fade.active) {
@@ -563,7 +562,6 @@ drawHUD = function() {
     const mm = 90, mmx = W - mm - 8, mmy = H - mm - 65;
     const msc = mm / WS;
     
-    // REDRAW THE MINIMAP TO FORCE BIGGER VISIBLE SQUARES
     for(let ty2=0; ty2<WS; ty2+=2){
         for(let tx2=0; tx2<WS; tx2+=2){
             const tt = worldMap[ty2][tx2];
@@ -576,13 +574,15 @@ drawHUD = function() {
                 if (tt === 13) mmCol = '#8b4513'; 
                 if (tt === 17) mmCol = '#1a6b8a'; 
                 
+                if (tt === 5) mmCol = '#000000'; 
+                if (tt === 6) mmCol = '#ffffff'; 
+                
                 ctx.fillStyle = mmCol;
                 ctx.fillRect(mmx+tx2*msc, mmy+ty2*msc, msc*2+0.5, msc*2+0.5);
             }
         }
     }
     
-    // Draw 4x4 Highly Visible Squares for Entrances
     for(let ty2=0; ty2<WS; ty2++){
         for(let tx2=0; tx2<WS; tx2++){
             if (worldMap[ty2][tx2] === 5) {
@@ -601,7 +601,6 @@ window.addEventListener('keydown', e => {
     if (e.key.toLowerCase() === 'e') triggerInteraction();
 });
 
-// Click logic handles both Dialogue and the Wire Puzzle!
 canvas.addEventListener('mousedown', e => {
     if (G.dialogue.active || G.nearNPC) {
         triggerInteraction();
@@ -611,8 +610,6 @@ canvas.addEventListener('mousedown', e => {
     if (G.wirePuzzle.active) {
         const W = canvas.width; const H = canvas.height;
         const bx = W/2 - 200; const by = H/2 - 150;
-        
-        // Check if clicking a left node
         for (let n of G.wirePuzzle.nodes) {
             if (Math.hypot(G.mx - (bx + 50), G.my - (by + n.ly)) < 25) {
                 G.wirePuzzle.selected = n.id; return;
@@ -629,27 +626,22 @@ canvas.addEventListener('mouseup', e => {
         for (let n of G.wirePuzzle.nodes) {
             if (Math.hypot(G.mx - (bx + 350), G.my - (by + n.ry)) < 25) {
                 if (n.id === G.wirePuzzle.selected) {
-                    n.connected = true; // Matched!
-                    
-                    // Check if puzzle is solved
+                    n.connected = true; 
                     if (G.wirePuzzle.nodes.every(x => x.connected)) {
                         G.story.cavePuzzleSolved = true;
                         G.wirePuzzle.active = false;
                         addChatMessage('System', 'Power Restored! The Waterfall Bridge extended.');
-                        generateWorld(); // Redraw map to show bridge
+                        generateWorld(); 
                     }
                 }
             }
         }
-        G.wirePuzzle.selected = null; // drop wire
+        G.wirePuzzle.selected = null; 
     }
 });
 
 canvas.addEventListener('touchstart', e => {
-    if (G.dialogue.active || G.nearNPC) {
-        triggerInteraction();
-        return;
-    }
+    if (G.dialogue.active || G.nearNPC) triggerInteraction();
 });
 
 function triggerInteraction() {
@@ -665,7 +657,12 @@ function triggerInteraction() {
     }
     
     if (G.nearNPC === 'terminal') {
-        if (!G.story.cavePuzzleSolved) G.wirePuzzle.active = true;
+        if (!G.story.cavePuzzleSolved) {
+            G.wirePuzzle.active = true;
+            // Open the puzzle, so we need to click the "Connect Wires" button 
+            // WAIT - the user said "I wanna connect the wires". 
+            // So we show the custom UI that lets them drag the wire!
+        }
         else addChatMessage('System', 'Terminal is already active.');
     } 
     else if (G.nearNPC) {
