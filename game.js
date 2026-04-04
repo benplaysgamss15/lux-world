@@ -1,5 +1,3 @@
-Game.js
-
 // ── SAVE & LOAD SYSTEM ──
 window.activeSave = null;
 
