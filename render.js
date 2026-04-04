@@ -1,5 +1,3 @@
-Render.js
-
 // ── HELPERS ──
 function rr(x,y,w,h,r,fill,stroke,sw){
     ctx.beginPath();
