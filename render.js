@@ -1,5 +1,3 @@
---- START OF FILE Paste April 05, 2026 - 9:18AM ---
-
 // ── HELPERS ──
 function rr(x,y,w,h,r,fill,stroke,sw){
     ctx.beginPath();
