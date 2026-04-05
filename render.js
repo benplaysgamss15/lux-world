@@ -1,3 +1,5 @@
+--- START OF FILE Paste April 05, 2026 - 9:18AM ---
+
 // ── HELPERS ──
 function rr(x,y,w,h,r,fill,stroke,sw){
     ctx.beginPath();
@@ -502,6 +504,11 @@ function drawHUD(){
             }
         }, '💔');
     }
+
+    btn(16, G.coop.partnerId ? 80 : 56, 85, 20, window.isAudioMuted ? 'Muted' : 'Music', window.isAudioMuted ? '#aa2222' : '#22aa22', '#fff', () => {
+        if (typeof toggleMute === 'function') toggleMute();
+        else window.isAudioMuted = !window.isAudioMuted;
+    }, window.isAudioMuted ? '🔇' : '🔊');
 
     const bw=95,bh=44,gap=10,by=H-58;
     const total=4*(bw+gap)-gap;
