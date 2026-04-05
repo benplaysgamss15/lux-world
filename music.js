@@ -7,30 +7,64 @@ bgmMap1.loop = true;
 bgmMap1.volume = 0.3; // 30% Volume
 
 window.isAudioMuted = false;
-
-function playMap1Music() {
-    if (window.isAudioMuted) return;
-    
-    // Only play if it's currently paused, so it doesn't stutter
-    if (bgmMap1.paused) {
-        // The .catch() prevents browser errors if they haven't clicked the screen yet
-        bgmMap1.play().catch(e => console.log("Browser blocked autoplay until user clicks."));
-    }
-}
-
-function stopMusic() {
-    bgmMap1.pause();
-}
+let playPromise = null; // Keeps track of the audio loading to prevent 60fps spam
 
 function toggleMute() {
     window.isAudioMuted = !window.isAudioMuted;
     
     if (window.isAudioMuted) {
-        stopMusic();
-    } else {
-        // If unmuted, check if we are on Map 1 in the overworld, and play it!
-        if (G.state === 'world' && G.level === 1) {
-            playMap1Music();
-        }
+        bgmMap1.pause();
+    } else if (G && G.state === 'world' && G.level === 1) {
+        bgmMap1.play().catch(() => {});
     }
 }
+
+// Automatically hook into the game loop
+setTimeout(() => {
+    if (typeof update === 'function') {
+        const originalUpdate = update;
+        
+        update = function() {
+            originalUpdate(); // Run the normal game logic first
+            
+            // Audio Logic
+            if (!window.isAudioMuted) {
+                // Only play music if we are walking around in Map 1
+                if (G.state === 'world' && G.level === 1) {
+                    
+                    // If it is paused, and we aren't currently trying to load it
+                    if (bgmMap1.paused && playPromise === null) {
+                        playPromise = bgmMap1.play();
+                        
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                playPromise = null; // Success!
+                            }).catch(e => {
+                                playPromise = null; // Browser blocked it, will try again next click
+                            });
+                        }
+                    }
+                } else {
+                    // Instantly pause music if we enter a Battle, Shop, Index, or Map 2!
+                    if (!bgmMap1.paused) {
+                        bgmMap1.pause();
+                    }
+                }
+            }
+        };
+    }
+}, 1000);
+
+// Browsers require a click/keypress before allowing audio to play.
+// This safely forces the audio to start the exact moment the player starts the game!
+window.addEventListener('click', () => {
+    if (!window.isAudioMuted && G && G.state === 'world' && G.level === 1 && bgmMap1.paused) {
+        bgmMap1.play().catch(() => {});
+    }
+}, { once: true });
+
+window.addEventListener('keydown', () => {
+    if (!window.isAudioMuted && G && G.state === 'world' && G.level === 1 && bgmMap1.paused) {
+        bgmMap1.play().catch(() => {});
+    }
+}, { once: true });
