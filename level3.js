@@ -129,8 +129,19 @@ const origSpawnMega = spawnMega;
 spawnMega = function() {
     if (G.level === 3) {
         if (!G.inCave && !G.bosses.leviathan) {
-            let tx = Math.floor(Math.random() * WS), ty = Math.floor(Math.random() * WS);
-            G.wilds.push({ key: 'leviathan', x: tx*TS+TS/2, y: ty*TS+TS/2, anim: 0, mt: 0, dx: 0, dy: 0, face: 1, isBoss: true });
+            const centerXY = WS/2 * TS;
+            const mapRadius = (WS/2 - 4) * TS;
+            let tx, ty, wx, wy;
+            
+            // Force Leviathan to spawn INSIDE the circle bounds
+            do {
+                tx = Math.floor(Math.random() * WS);
+                ty = Math.floor(Math.random() * WS);
+                wx = tx*TS + TS/2;
+                wy = ty*TS + TS/2;
+            } while (Math.hypot(wx - centerXY, wy - centerXY) >= mapRadius || (worldMap[ty] && worldMap[ty][tx] !== 2));
+            
+            G.wilds.push({ key: 'leviathan', x: wx, y: wy, anim: 0, mt: 0, dx: 0, dy: 0, face: 1, isBoss: true });
         } else if (G.inCave && !G.bosses.abyssal) {
             G.wilds.push({ key: 'abyssal_serpent', x: 80*TS, y: 22*TS, anim: 0, mt: 0, dx: 0, dy: 0, face: 1, isBoss: true });
         }
@@ -332,7 +343,8 @@ drawHUD = function() {
         
         ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(mmx + G.player.x/TS*msc, mmy + G.player.y/TS*msc, 3, 0, Math.PI*2); ctx.fill();
         for (const w of G.wilds) {
-            ctx.fillStyle = w.isBoss ? '#ff3333' : '#aaffaa';
+            // FIX: Use Rarity Color for Minimap dots
+            ctx.fillStyle = w.isBoss ? '#ff3333' : RARITY_COLOR[DINOS[w.key].rarity];
             ctx.beginPath(); ctx.arc(mmx + w.x/TS*msc, mmy + w.y/TS*msc, w.isBoss ? 3 : 1.5, 0, Math.PI*2); ctx.fill();
         }
 
@@ -453,7 +465,7 @@ doCheatPrompt = function() {
     else if (c === 'dev_lvl3') { 
         G.level = 3; G.discovered.plesiosaurus = true; G.player.dk = 'plesiosaurus'; G.inCave = false;
         generateWorld(); spawnWilds(); spawnMega(); 
-        G.player.x = 80*TS; G.player.y = 70*TS; G.cheatsActive = true; 
+        G.player.x = 80*TS; G.player.y = 60*TS; G.cheatsActive = true; // FIX: Spawns above cave entrance safely
         addChatMessage('System', "Teleported to Ocean Depths!"); 
     }
 };
@@ -539,7 +551,7 @@ function moveMaze(dx, dy) {
 }
 
 function drawPuzzle3() {
-    G.btns = []; // Ensure buttons reset every frame
+    G.btns = []; 
     const W = canvas.width, H = canvas.height;
     ctx.fillStyle = 'rgba(0,10,30,0.95)'; ctx.fillRect(0,0,W,H);
     ctx.fillStyle = '#fff'; ctx.font = '24px Courier New'; ctx.textAlign='center'; 
@@ -556,7 +568,6 @@ function drawPuzzle3() {
     }
     ctx.fillStyle = '#00ffff'; ctx.beginPath(); ctx.arc(bx + G.p3.px*tw + tw/2, by + G.p3.py*tw + tw/2, 12, 0, Math.PI*2); ctx.fill();
 
-    // MOBILE D-PAD BUTTONS (Automatically processed by global click handler via btn())
     const bY = H - 140;
     btn(W/2 - 30, bY - 60, 60, 50, '▲', '#444', '#fff', () => moveMaze(0, -1));
     btn(W/2 - 30, bY + 10, 60, 50, '▼', '#444', '#fff', () => moveMaze(0, 1));
@@ -632,12 +643,41 @@ function drawEnding() {
     btn(W/2 - 160, H/2 + 110, 320, 50, 'https://discord.gg/8lux', '#2255cc', '#fff', () => {
         window.open('https://discord.gg/8lux', '_blank');
     }, '💬');
+
+    // FIX: New Button -> Let me play anyways
+    btn(W/2 - 160, H/2 + 175, 320, 40, 'Let me play anyways', '#44aa44', '#fff', () => {
+        G.state = 'world';
+        G.btns = [];
+    }, '▶');
 }
 
-// ── 12. END GAME HOOKS ──
+// ── 12. END GAME HOOKS (INCLUDES LVL 2 -> LVL 3 TRANSITION) ──
 const origExitBattle = exitBattle;
 exitBattle = function() {
+    // Check if we JUST beat the Level 2 Boss
+    let transitioningTo3 = (G.level === 2 && G.battle.ek === 'indominus' && G.battle.res === 'win');
+
+    // Run normal game reset
     origExitBattle();
+
+    // Force transition to Level 3 immediately after normal reset
+    if (transitioningTo3) {
+        G.level = 3; 
+        G.discovered.plesiosaurus = true; 
+        G.player.dk = 'plesiosaurus'; 
+        G.inCave = false;
+        generateWorld(); 
+        spawnWilds(); 
+        spawnMega(); 
+        G.player.x = 80*TS; G.player.y = 60*TS; // Safely above the cave entrance
+        G.playerHp = pMaxHp(); 
+        G.playerShield = 0;
+        
+        if (G.coop.partnerId) sendCoop({ type: 'coop_sync', level: 3 });
+        addChatMessage('System', 'The ocean calls... Level 3 Unlocked!');
+    }
+
+    // Level 3 Boss defeat tracking
     if (G.level === 3 && G.battle.res === 'win') {
         if (G.battle.ek === 'leviathan') { G.bosses.leviathan = true; addChatMessage('System', 'Leviathan Defeated!'); }
         if (G.battle.ek === 'abyssal_serpent') { G.bosses.abyssal = true; addChatMessage('System', 'Abyssal Serpent Defeated!'); }
@@ -646,6 +686,22 @@ exitBattle = function() {
             setTimeout(() => { G.state = 'ending'; }, 1500); 
         }
     }
+};
+
+// Also patch the co-op handler so if host advances to map 3, the client follows smoothly
+const origHandleCoopMessage = handleCoopMessage;
+handleCoopMessage = function(data) {
+    if (data.type === 'coop_sync' && data.level === 3 && G.level < 3) {
+        G.level = 3; 
+        G.discovered.plesiosaurus = true; 
+        G.player.dk = 'plesiosaurus'; 
+        G.inCave = false;
+        generateWorld(); spawnWilds(); spawnMega(); 
+        G.player.x = 80*TS; G.player.y = 60*TS; 
+        G.playerHp = pMaxHp(); G.playerShield = 0;
+        addChatMessage('System', 'Partner defeated Indominus! Welcome to Map 3!');
+    }
+    origHandleCoopMessage(data);
 };
 
 const origRender = render;
