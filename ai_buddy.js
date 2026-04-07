@@ -14,7 +14,7 @@ console.log("Loading AI Buddy Script...");
 window.AI_BUDDY = {
     active: true,
     apiKey: null,
-    model: 'llama-3.3-70b-versatile', // <-- Switched to Groq's Llama 3.3
+    model: 'compound-mini',               // <-- Switched to Groq's Compound Mini
     spawned: false,
     following: false,
     x: 0,
@@ -144,7 +144,7 @@ async function askGroq(userMessage) {
                     content: userMessage
                 }
             ],
-            max_tokens: 60  // Token limit set exactly as requested
+            max_tokens: 300   // <-- Token limit set to 300 as requested
         };
 
         const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
