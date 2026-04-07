@@ -144,7 +144,7 @@ async function askGroq(userMessage) {
                     content: userMessage
                 }
             ],
-            max_tokens: 15000 // Token limit set exactly as requested
+            max_tokens: 60  // Token limit set exactly as requested
         };
 
         const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
