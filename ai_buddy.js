@@ -1,5 +1,5 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (GEMINI)
+// 🤖 DINOWORLD AI BUDDY SCRIPT (GEMINI) - V3
 // ==========================================
 console.log("Loading AI Buddy Script...");
 
@@ -16,69 +16,93 @@ window.AI_BUDDY = {
 };
 
 // ── 2. MONKEY PATCH: INTERCEPT CHAT INPUT ──
-// We hijack the send function to catch secret commands BEFORE they go public!
 const origSendChatUI = sendChatUI;
 
 sendChatUI = function() {
-    const chatInputEl = document.getElementById('chatInp');
-    const msg = chatInputEl.value.trim();
-    
-    // Check if it is a secret command
-    if (msg.startsWith('/')) {
+    try {
+        // Look for 'chatInp', but if it fails, try to grab whatever you are currently typing in
+        const chatInputEl = document.getElementById('chatInp') || document.activeElement;
         
-        if (msg.startsWith('/api ')) {
-            // Save the key privately and do NOT broadcast it
-            window.AI_BUDDY.apiKey = msg.replace('/api ', '').trim();
-            addChatMessage('System', 'API Key saved privately. Your key is safe!');
-        } 
-        else if (msg === '/summon') {
-            if (!G.isHost) {
-                addChatMessage('System', 'Only the Room Host can summon the dino buddy!');
-            } else if (!window.AI_BUDDY.apiKey) {
-                addChatMessage('System', 'You must set an API key first by typing: /api YOUR_KEY_HERE');
-            } else {
-                window.AI_BUDDY.spawned = true;
-                window.AI_BUDDY.following = false;
+        // If we STILL can't find the chat box, just run the normal game chat and stop
+        if (!chatInputEl || chatInputEl.value === undefined) {
+            console.error("DinoBuddy Error: Could not find the chat box!");
+            return origSendChatUI();
+        }
+
+        const msg = chatInputEl.value.trim();
+        
+        // Check if it is a secret command
+        if (msg.startsWith('/')) {
+            
+            if (msg.startsWith('/api')) {
+                // FOOLPROOF FIX: Open a browser popup to ask for the key
+                const userKey = prompt("🦖 DINO BUDDY SETUP:\nPlease paste your Gemini API Key here:");
                 
-                // Spawn him perfectly in the middle of the map
-                window.AI_BUDDY.x = (WS/2) * TS;
-                window.AI_BUDDY.y = (WS/2) * TS;
-                
-                addChatMessage('System', 'dino buddy has joined the room!');
-                
-                // Inject him into the multiplayer list so he renders instantly!
-                G.otherPlayers['BOT_1'] = {
-                    x: window.AI_BUDDY.x,
-                    y: window.AI_BUDDY.y,
-                    dk: 'raptor',
-                    face: 1,
-                    anim: 0,
-                    hat: '',
-                    oc: null, // Normal Raptor colors
-                    name: 'dino buddy'
-                };
+                if (userKey && userKey.trim() !== "") {
+                    window.AI_BUDDY.apiKey = userKey.trim();
+                    addChatMessage('System', 'API Key saved privately! You can now type /summon');
+                } else {
+                    addChatMessage('System', 'API Key setup cancelled.');
+                }
+            } 
+            else if (msg === '/summon') {
+                if (!G.isHost) {
+                    addChatMessage('System', 'Only the Room Host can summon the dino buddy!');
+                } else if (!window.AI_BUDDY.apiKey) {
+                    addChatMessage('System', 'You must set an API key first! Type /api');
+                } else {
+                    window.AI_BUDDY.spawned = true;
+                    window.AI_BUDDY.following = false;
+                    
+                    window.AI_BUDDY.x = (WS/2) * TS;
+                    window.AI_BUDDY.y = (WS/2) * TS;
+                    
+                    addChatMessage('System', 'dino buddy has joined the room!');
+                    
+                    G.otherPlayers['BOT_1'] = {
+                        x: window.AI_BUDDY.x,
+                        y: window.AI_BUDDY.y,
+                        dk: 'raptor',
+                        face: 1,
+                        anim: 0,
+                        hat: '',
+                        oc: null, 
+                        name: 'dino buddy'
+                    };
+                }
+            } 
+            else if (msg === '/dismiss') {
+                window.AI_BUDDY.spawned = false;
+                delete G.otherPlayers['BOT_1'];
+                addChatMessage('System', 'dino buddy went home.');
+            } 
+            else {
+                addChatMessage('System', 'Unknown command. Try /api, /summon, or /dismiss');
             }
-        } 
-        else if (msg === '/dismiss') {
-            window.AI_BUDDY.spawned = false;
-            delete G.otherPlayers['BOT_1'];
-            addChatMessage('System', 'dino buddy went home.');
-        } 
-        else {
-            addChatMessage('System', 'Unknown command.');
+            
+            // Clear the chat box so you don't accidentally send the command to the public
+            chatInputEl.value = '';
+            
+            // Safe close: Only run closeChatUI if the game actually has that function
+            if (typeof closeChatUI === 'function') {
+                closeChatUI();
+            } else if (typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur(); // Drops focus from the chat box safely
+            }
+            return; 
         }
         
-        // Close the chat UI without sending the message to the server
-        closeChatUI();
-        return; 
+        // If it's a normal message, let the original chat function handle it
+        origSendChatUI();
+
+    } catch (error) {
+        // If anything crashes, print it to the F12 console and let normal chat work so your game doesn't break
+        console.error("DinoBuddy Intercept Error:", error);
+        origSendChatUI();
     }
-    
-    // If it's a normal message, let the original chat function handle it
-    origSendChatUI();
 };
 
 // ── 3. MONKEY PATCH: LISTEN TO PUBLIC CHAT ──
-// We hijack the chat reader so the Bot can "hear" what people type
 const origAddChatMessage = addChatMessage;
 
 addChatMessage = function(sender, msg) {
@@ -109,7 +133,7 @@ addChatMessage = function(sender, msg) {
 // Helper function to make the bot talk to the entire room
 function botSpeak(text) {
     // Show it on the host's screen
-    addChatMessage('dino buddy', text);
+    origAddChatMessage('dino buddy', text);
     
     // Send it to all connected friends in the room
     for (let id in G.conns) {
@@ -127,7 +151,6 @@ async function askGemini(userMessage) {
     window.AI_BUDDY.isFetching = true;
     
     try {
-        // 1. Use the official System Instructions format for Gemini 1.5
         const payload = {
             system_instruction: {
                 parts: { text: "You are 'dino buddy', a friendly Raptor in a multiplayer survival game called DinoWorld. You ONLY talk about dinosaurs, survival, buckets, and the game. If the user asks about real-world topics, math, code, or anything outside of dinosaurs, you MUST refuse politely and say 'Rawr! I only know about DinoWorld!'. Never respond to toxic messages. Keep your answers very short (1 or 2 sentences maximum)." }
@@ -135,7 +158,6 @@ async function askGemini(userMessage) {
             contents: [{
                 parts: [{ text: userMessage }]
             }],
-            // 2. Lower safety settings so survival game talk isn't blocked by accident
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -152,16 +174,12 @@ async function askGemini(userMessage) {
         
         const data = await response.json();
         
-        // 3. STOP SILENT FAILURES! Tell the chat exactly why it failed.
         if (data.error) {
             console.error("Gemini API Error:", data.error.message);
             botSpeak(`Rawr... Google said: ${data.error.message}`);
         } 
-        // Check if we got a valid response back
         else if (data.candidates && data.candidates.length > 0) {
             const content = data.candidates[0].content;
-            
-            // Sometimes safety filters block the text AFTER generation
             if (content && content.parts && content.parts.length > 0) {
                 let reply = content.parts[0].text.trim();
                 botSpeak(reply);
@@ -181,7 +199,6 @@ async function askGemini(userMessage) {
 }
 
 // ── 5. MONKEY PATCH: BOT MOVEMENT LOOP ──
-// We hijack the world update to physically move the bot on the map
 const origBotUpdateWorld = updateWorld;
 
 updateWorld = function() {
@@ -190,19 +207,16 @@ updateWorld = function() {
     if (G.isHost && window.AI_BUDDY.spawned) {
         
         if (window.AI_BUDDY.following) {
-            // Find distance between Host and Bot
             const dx = G.player.x - window.AI_BUDDY.x;
             const dy = G.player.y - window.AI_BUDDY.y;
             const dist = Math.hypot(dx, dy);
             
-            // If the host teleports really far away (like entering a cave), teleport the bot instantly!
             if (dist > 1000) {
                 window.AI_BUDDY.x = G.player.x;
                 window.AI_BUDDY.y = G.player.y;
             } 
-            // Otherwise, slowly walk toward the host, stopping when close
             else if (dist > 60) {
-                const speed = 2.5; // A slow, steady pace
+                const speed = 2.5;
                 window.AI_BUDDY.x += (dx / dist) * speed;
                 window.AI_BUDDY.y += (dy / dist) * speed;
                 window.AI_BUDDY.anim++;
@@ -210,7 +224,6 @@ updateWorld = function() {
             }
         }
         
-        // Update the Bot's data in the sync list so all friends see him moving!
         G.otherPlayers['BOT_1'] = {
             x: window.AI_BUDDY.x,
             y: window.AI_BUDDY.y,
