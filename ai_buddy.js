@@ -1,5 +1,5 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (GEMINI 3.1)
+// 🤖 DINOWORLD AI BUDDY SCRIPT (GROQ EDITION)
 // ==========================================
 
 // Anti-Ghosting Safeguard
@@ -14,7 +14,7 @@ console.log("Loading AI Buddy Script...");
 window.AI_BUDDY = {
     active: true,
     apiKey: null,
-    model: 'gemini-3.1-flash-lite-preview', // <-- YOU CAN CHANGE THE MODEL HERE EASILY!
+    model: 'llama-3.3-70b-versatile', // <-- Switched to Groq's Llama 3.3
     spawned: false,
     following: false,
     x: 0,
@@ -40,7 +40,8 @@ sendChatUI = function() {
         
         if (msg.startsWith('/')) {
             if (msg.startsWith('/api')) {
-                const userKey = prompt("🦖 DINO BUDDY SETUP:\nPlease paste your Gemini API Key here:");
+                // Updated text to ask for Groq Key instead of Gemini
+                const userKey = prompt("🦖 DINO BUDDY SETUP:\nPlease paste your GROQ API Key here:");
                 if (userKey && userKey.trim() !== "") {
                     window.AI_BUDDY.apiKey = userKey.trim();
                     addChatMessage('System', `API Key saved! Model set to ${window.AI_BUDDY.model}. Type /summon`);
@@ -108,7 +109,7 @@ addChatMessage = function(sender, msg) {
             botSpeak("Okay, I will stay right here!");
         }
         else if (lowerMsg.includes('dino buddy')) {
-            askGemini(msg);
+            askGroq(msg); // Changed function name to match the new API
         }
     }
 };
@@ -122,48 +123,49 @@ function botSpeak(text) {
     }
 }
 
-// ── 4. GEMINI API CONNECTION ──
-async function askGemini(userMessage) {
+// ── 4. GROQ API CONNECTION ──
+async function askGroq(userMessage) {
     if (window.AI_BUDDY.isFetching) return;
     if (!window.AI_BUDDY.apiKey) return;
     
     window.AI_BUDDY.isFetching = true;
     
     try {
+        // Formatted for OpenAI/Groq standards
         const payload = {
-            system_instruction: {
-                parts: { text: "You are 'dino buddy', a friendly Raptor in a multiplayer survival game called DinoWorld. You ONLY talk about dinosaurs, survival, buckets, and the game. Keep your answers very short (1 or 2 sentences)." }
-            },
-            contents: [{ parts: [{ text: userMessage }] }],
-            safetySettings: [
-                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-            ]
+            model: window.AI_BUDDY.model,
+            messages: [
+                {
+                    role: "system",
+                    content: "You are 'dino buddy', a friendly Raptor in a multiplayer survival game called DinoWorld. You ONLY talk about dinosaurs, survival, buckets, and the game. Keep your answers very short (1 or 2 sentences)."
+                },
+                {
+                    role: "user",
+                    content: userMessage
+                }
+            ],
+            max_tokens: 15000 // Token limit set exactly as requested
         };
 
-        // Uses the dynamic model variable from Step 1!
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${window.AI_BUDDY.model}:generateContent?key=${window.AI_BUDDY.apiKey}`, {
+        const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                // Groq uses Bearer Authorization in the headers, unlike Gemini
+                'Authorization': `Bearer ${window.AI_BUDDY.apiKey}` 
+            },
             body: JSON.stringify(payload)
         });
         
         const data = await response.json();
         
         if (data.error) {
-            console.error("Gemini API Error:", data.error.message);
-            // This will now clearly show WHICH model is throwing the error
-            botSpeak(`Rawr... API Error for ${window.AI_BUDDY.model}: ${data.error.message.split('.')[0]}`);
+            console.error("Groq API Error:", data.error.message);
+            botSpeak(`Rawr... Groq Error: ${data.error.message.split('.')[0]}`);
         } 
-        else if (data.candidates && data.candidates.length > 0) {
-            const content = data.candidates[0].content;
-            if (content && content.parts && content.parts.length > 0) {
-                botSpeak(content.parts[0].text.trim());
-            } else {
-                botSpeak("Rawr... my safety filters blocked me.");
-            }
+        // Groq parses text through choices[0].message.content
+        else if (data.choices && data.choices.length > 0) {
+            botSpeak(data.choices[0].message.content.trim());
         }
         
     } catch (err) {
