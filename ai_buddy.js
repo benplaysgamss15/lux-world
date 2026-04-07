@@ -1,5 +1,5 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (GEMINI) - 2026 EDITION
+// 🤖 DINOWORLD AI BUDDY SCRIPT (GEMINI 3.1)
 // ==========================================
 console.log("Loading AI Buddy Script...");
 
@@ -127,7 +127,7 @@ function botSpeak(text) {
     }
 }
 
-// ── 4. GEMINI API CONNECTION (UPDATED FOR 2026) ──
+// ── 4. GEMINI API CONNECTION (UPDATED FOR GEMINI 3.1) ──
 async function askGemini(userMessage) {
     if (window.AI_BUDDY.isFetching) return;
     if (!window.AI_BUDDY.apiKey) return;
@@ -150,8 +150,8 @@ async function askGemini(userMessage) {
             ]
         };
 
-        // 🚨 UPGRADED TO gemini-2.0-flash FOR 2026 COMPATIBILITY 🚨
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.AI_BUDDY.apiKey}`, {
+        // 🚨 UPGRADED TO gemini-3.1-flash-lite-preview 🚨
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${window.AI_BUDDY.apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
