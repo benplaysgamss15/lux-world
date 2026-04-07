@@ -1,4 +1,4 @@
-// ==========================================
+p// ==========================================
 // 🤖 DINOWORLD AI BUDDY SCRIPT (GEMINI)
 // ==========================================
 console.log("Loading AI Buddy Script...");
@@ -15,19 +15,16 @@ window.AI_BUDDY = {
     isFetching: false
 };
 
-// ── 2. MONKEY PATCH: INTERCEPT CHAT INPUT ──
-// We hijack the send function to catch secret commands BEFORE they go public!
+// ── 2. INTERCEPT CHAT INPUT (For Secret Commands) ──
 const origSendChatUI = sendChatUI;
 
 sendChatUI = function() {
     const chatInputEl = document.getElementById('chatInp');
     const msg = chatInputEl.value.trim();
     
-    // Check if it is a secret command
     if (msg.startsWith('/')) {
         
         if (msg.startsWith('/api ')) {
-            // Save the key privately and do NOT broadcast it
             window.AI_BUDDY.apiKey = msg.replace('/api ', '').trim();
             addChatMessage('System', 'API Key saved privately. Your key is safe!');
         } 
@@ -40,13 +37,11 @@ sendChatUI = function() {
                 window.AI_BUDDY.spawned = true;
                 window.AI_BUDDY.following = false;
                 
-                // Spawn him perfectly in the middle of the map
                 window.AI_BUDDY.x = (WS/2) * TS;
                 window.AI_BUDDY.y = (WS/2) * TS;
                 
                 addChatMessage('System', 'dino buddy has joined the room!');
                 
-                // Inject him into the multiplayer list so he renders instantly!
                 G.otherPlayers['BOT_1'] = {
                     x: window.AI_BUDDY.x,
                     y: window.AI_BUDDY.y,
@@ -54,9 +49,14 @@ sendChatUI = function() {
                     face: 1,
                     anim: 0,
                     hat: '',
-                    oc: null, // Normal Raptor colors
+                    oc: null, 
                     name: 'dino buddy'
                 };
+                
+                // NEW: Make him introduce himself so players know the rules!
+                setTimeout(() => {
+                    botSpeak("Rawr! I am your Dino Buddy! Say my name to talk to me, or say 'dino buddy, come' to make me follow you!");
+                }, 500);
             }
         } 
         else if (msg === '/dismiss') {
@@ -68,24 +68,20 @@ sendChatUI = function() {
             addChatMessage('System', 'Unknown command.');
         }
         
-        // Close the chat UI without sending the message to the server
         closeChatUI();
         return; 
     }
     
-    // If it's a normal message, let the original chat function handle it
     origSendChatUI();
 };
 
-// ── 3. MONKEY PATCH: LISTEN TO PUBLIC CHAT ──
-// We hijack the chat reader so the Bot can "hear" what people type
+// ── 3. LISTEN TO PUBLIC CHAT ──
 const origAddChatMessage = addChatMessage;
 
 addChatMessage = function(sender, msg) {
-    // Let the message display normally on screen
     origAddChatMessage(sender, msg);
     
-    // The Host's computer acts as the "Brain" for the bot
+    // Check if the Bot should react to this message
     if (G.isHost && window.AI_BUDDY.spawned && sender !== 'dino buddy' && sender !== 'System') {
         const lowerMsg = msg.toLowerCase();
         
@@ -99,19 +95,16 @@ addChatMessage = function(sender, msg) {
             window.AI_BUDDY.following = false;
             botSpeak("Okay, I will stay right here!");
         }
-        // AI Conversation Trigger
+        // AI Conversation Trigger (Must say "dino buddy" or reply to him with "@dino buddy")
         else if (lowerMsg.includes('dino buddy')) {
-            askGemini(msg);
+            askGemini(msg, sender);
         }
     }
 };
 
-// Helper function to make the bot talk to the entire room
 function botSpeak(text) {
-    // Show it on the host's screen
     addChatMessage('dino buddy', text);
     
-    // Send it to all connected friends in the room
     for (let id in G.conns) {
         if (G.conns[id] && G.conns[id].open) {
             G.conns[id].send({ type: 'chat', sender: 'dino buddy', msg: text });
@@ -120,16 +113,16 @@ function botSpeak(text) {
 }
 
 // ── 4. GEMINI API CONNECTION ──
-async function askGemini(userMessage) {
+async function askGemini(userMessage, playerName) {
     if (window.AI_BUDDY.isFetching) return;
     if (!window.AI_BUDDY.apiKey) return;
     
     window.AI_BUDDY.isFetching = true;
     
     try {
-        // This is the strict System Prompt that forces it to ignore toxicity and stay in character
         const systemPrompt = `
             SYSTEM INSTRUCTION: You are 'dino buddy', a friendly Raptor in a multiplayer survival game called DinoWorld. 
+            You are talking to a player named ${playerName}.
             You ONLY talk about dinosaurs, survival, buckets, and the game. 
             If the user asks about real-world topics, math, code, or anything outside of dinosaurs, you MUST refuse politely and say 'Rawr! I only know about DinoWorld!'. 
             Never respond to toxic, offensive, or inappropriate messages. 
@@ -146,6 +139,13 @@ async function askGemini(userMessage) {
             })
         });
         
+        // NEW: Error checking! If the API key is wrong, tell the player.
+        if (!response.ok) {
+            botSpeak("Rawr... I can't think right now. My API key might be invalid!");
+            window.AI_BUDDY.isFetching = false;
+            return;
+        }
+        
         const data = await response.json();
         
         if (data && data.candidates && data.candidates.length > 0) {
@@ -161,8 +161,7 @@ async function askGemini(userMessage) {
     window.AI_BUDDY.isFetching = false;
 }
 
-// ── 5. MONKEY PATCH: BOT MOVEMENT LOOP ──
-// We hijack the world update to physically move the bot on the map
+// ── 5. BOT MOVEMENT LOOP ──
 const origBotUpdateWorld = updateWorld;
 
 updateWorld = function() {
@@ -171,19 +170,16 @@ updateWorld = function() {
     if (G.isHost && window.AI_BUDDY.spawned) {
         
         if (window.AI_BUDDY.following) {
-            // Find distance between Host and Bot
             const dx = G.player.x - window.AI_BUDDY.x;
             const dy = G.player.y - window.AI_BUDDY.y;
             const dist = Math.hypot(dx, dy);
             
-            // If the host teleports really far away (like entering a cave), teleport the bot instantly!
             if (dist > 1000) {
                 window.AI_BUDDY.x = G.player.x;
                 window.AI_BUDDY.y = G.player.y;
             } 
-            // Otherwise, slowly walk toward the host, stopping when close
             else if (dist > 60) {
-                const speed = 2.5; // A slow, steady pace
+                const speed = 2.5; 
                 window.AI_BUDDY.x += (dx / dist) * speed;
                 window.AI_BUDDY.y += (dy / dist) * speed;
                 window.AI_BUDDY.anim++;
@@ -191,7 +187,6 @@ updateWorld = function() {
             }
         }
         
-        // Update the Bot's data in the sync list so all friends see him moving!
         G.otherPlayers['BOT_1'] = {
             x: window.AI_BUDDY.x,
             y: window.AI_BUDDY.y,
