@@ -14,7 +14,7 @@ console.log("Loading AI Buddy Script...");
 window.AI_BUDDY = {
     active: true,
     apiKey: null,
-    model: 'compound-mini',               // <-- Switched to Groq's Compound Mini
+    model: 'groq/compound-mini',               // <-- Switched to Groq's Compound Mini
     spawned: false,
     following: false,
     x: 0,
