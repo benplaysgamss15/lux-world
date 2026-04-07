@@ -1,5 +1,5 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (GEMINI) - V3
+// 🤖 DINOWORLD AI BUDDY SCRIPT (GEMINI) - 2026 EDITION
 // ==========================================
 console.log("Loading AI Buddy Script...");
 
@@ -20,10 +20,8 @@ const origSendChatUI = sendChatUI;
 
 sendChatUI = function() {
     try {
-        // Look for 'chatInp', but if it fails, try to grab whatever you are currently typing in
         const chatInputEl = document.getElementById('chatInp') || document.activeElement;
         
-        // If we STILL can't find the chat box, just run the normal game chat and stop
         if (!chatInputEl || chatInputEl.value === undefined) {
             console.error("DinoBuddy Error: Could not find the chat box!");
             return origSendChatUI();
@@ -31,11 +29,9 @@ sendChatUI = function() {
 
         const msg = chatInputEl.value.trim();
         
-        // Check if it is a secret command
         if (msg.startsWith('/')) {
             
             if (msg.startsWith('/api')) {
-                // FOOLPROOF FIX: Open a browser popup to ask for the key
                 const userKey = prompt("🦖 DINO BUDDY SETUP:\nPlease paste your Gemini API Key here:");
                 
                 if (userKey && userKey.trim() !== "") {
@@ -80,23 +76,19 @@ sendChatUI = function() {
                 addChatMessage('System', 'Unknown command. Try /api, /summon, or /dismiss');
             }
             
-            // Clear the chat box so you don't accidentally send the command to the public
             chatInputEl.value = '';
             
-            // Safe close: Only run closeChatUI if the game actually has that function
             if (typeof closeChatUI === 'function') {
                 closeChatUI();
             } else if (typeof document.activeElement.blur === 'function') {
-                document.activeElement.blur(); // Drops focus from the chat box safely
+                document.activeElement.blur(); 
             }
             return; 
         }
         
-        // If it's a normal message, let the original chat function handle it
         origSendChatUI();
 
     } catch (error) {
-        // If anything crashes, print it to the F12 console and let normal chat work so your game doesn't break
         console.error("DinoBuddy Intercept Error:", error);
         origSendChatUI();
     }
@@ -106,36 +98,28 @@ sendChatUI = function() {
 const origAddChatMessage = addChatMessage;
 
 addChatMessage = function(sender, msg) {
-    // Let the message display normally on screen
     origAddChatMessage(sender, msg);
     
-    // The Host's computer acts as the "Brain" for the bot
     if (G.isHost && window.AI_BUDDY.spawned && sender !== 'dino buddy' && sender !== 'System') {
         const lowerMsg = msg.toLowerCase();
         
-        // Command: Follow
         if (lowerMsg.includes('dino buddy, come')) {
             window.AI_BUDDY.following = true;
             botSpeak("Rawr! I'm coming to you!");
         } 
-        // Command: Stop
         else if (lowerMsg.includes('dino buddy, stop')) {
             window.AI_BUDDY.following = false;
             botSpeak("Okay, I will stay right here!");
         }
-        // AI Conversation Trigger
         else if (lowerMsg.includes('dino buddy')) {
             askGemini(msg);
         }
     }
 };
 
-// Helper function to make the bot talk to the entire room
 function botSpeak(text) {
-    // Show it on the host's screen
     origAddChatMessage('dino buddy', text);
     
-    // Send it to all connected friends in the room
     for (let id in G.conns) {
         if (G.conns[id] && G.conns[id].open) {
             G.conns[id].send({ type: 'chat', sender: 'dino buddy', msg: text });
@@ -143,7 +127,7 @@ function botSpeak(text) {
     }
 }
 
-// ── 4. GEMINI API CONNECTION ──
+// ── 4. GEMINI API CONNECTION (UPDATED FOR 2026) ──
 async function askGemini(userMessage) {
     if (window.AI_BUDDY.isFetching) return;
     if (!window.AI_BUDDY.apiKey) return;
@@ -166,7 +150,8 @@ async function askGemini(userMessage) {
             ]
         };
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${window.AI_BUDDY.apiKey}`, {
+        // 🚨 UPGRADED TO gemini-2.0-flash FOR 2026 COMPATIBILITY 🚨
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.AI_BUDDY.apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
