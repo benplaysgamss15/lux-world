@@ -1,5 +1,5 @@
-// ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (GROQ V5.1)
+p// ==========================================
+// 🤖 DINOWORLD AI BUDDY SCRIPT (GROQ V5.2)
 // ==========================================
 
 // Anti-Ghosting Safeguard
@@ -28,7 +28,7 @@ window.AI_BUDDY = {
     anim: 0,
     isFetching: false,
     
-    // V5 Progression Stats
+    // Progression Stats
     dk: 'raptor', // His current equipped dino
     unlocked: ['raptor'], // His secret index!
     battleWait: 0 // Used to time his attacks in Co-op
@@ -205,48 +205,51 @@ function updateBotSync() {
     };
 }
 
-// 5A. The BATTLE Engine Fix
-const origUpdateBattle = typeof updateBattle !== 'undefined' ? updateBattle : null;
-updateBattle = function() {
-    if (origUpdateBattle) origUpdateBattle();
+// 5A. MASTER GAME LOOP INTERCEPT (Bulletproof Co-op Attacking)
+const origMasterUpdate = typeof update !== 'undefined' ? update : null;
+update = function() {
+    if (origMasterUpdate) origMasterUpdate();
     
-    // The bot's brain now correctly ticks during the battle screen!
-    if (G.isHost && window.AI_BUDDY.spawned && G.battle && G.battle.isCoop && G.coop.partnerId === 'BOT_1') {
-        // Wait until it's his turn and animations are finished
-        if (G.battle.turn === 'partner' && !G.battle.anim && !G.battle.res) {
-            window.AI_BUDDY.battleWait++;
-            // Wait about ~0.8 seconds to feel like a real player clicking the button
-            if (window.AI_BUDDY.battleWait > 50) {
-                window.AI_BUDDY.battleWait = 0;
-                const botDino = DINOS[window.AI_BUDDY.dk] || DINOS['raptor'];
-                const dmg = Math.max(1, Math.floor(botDino.atk * R_MULT[botDino.rarity]));
+    // Checks if the bot is alive, in Co-op mode, and in the battle screen
+    if (G.isHost && window.AI_BUDDY.spawned) {
+        if (G.state === 'battle' && G.battle.isCoop && G.coop.partnerId === 'BOT_1') {
+            
+            // Wait until it is explicitly his turn, and no attack animations are playing
+            if (G.battle.turn === 'partner' && !G.battle.anim && !G.battle.res) {
+                window.AI_BUDDY.battleWait++;
                 
-                // Fire the attack packet!
-                if (typeof processCoopBattleAction === 'function') {
-                    processCoopBattleAction({ action: 'player_attack', dmg: dmg });
+                // Wait ~1 second before attacking so it feels human
+                if (window.AI_BUDDY.battleWait > 60) {
+                    window.AI_BUDDY.battleWait = 0;
+                    
+                    const botDino = DINOS[window.AI_BUDDY.dk] || DINOS['raptor'];
+                    const dmg = Math.max(1, Math.floor(botDino.atk * R_MULT[botDino.rarity]));
+                    
+                    if (typeof processCoopBattleAction === 'function') {
+                        processCoopBattleAction({ action: 'player_attack', dmg: dmg });
+                    }
                 }
+            } else {
+                // Reset the timer if it's not his turn
+                window.AI_BUDDY.battleWait = 0;
             }
-        } else {
-            window.AI_BUDDY.battleWait = 0;
         }
     }
 };
 
-// 5B. The WORLD Engine Fix
+// 5B. THE WORLD ENGINE & HUNTING
 const origBotUpdateWorld = typeof updateWorld !== 'undefined' ? updateWorld : null;
 updateWorld = function() {
     if (origBotUpdateWorld) origBotUpdateWorld();
     
     if (G.isHost && window.AI_BUDDY.spawned) {
         
-        // --- CO-OP INVITE INTERCEPTOR ---
         if (G.coop.reqTo === 'BOT_1') {
             G.coop.reqTo = null; 
             botSpeak("Yeah! Let's team up!");
             bondWithPartner('BOT_1', 'dino buddy'); 
         }
         
-        // --- MOVEMENT & HUNTING ---
         if (window.AI_BUDDY.following || G.coop.partnerId === 'BOT_1') {
             const dx = G.player.x - window.AI_BUDDY.x;
             const dy = G.player.y - window.AI_BUDDY.y;
@@ -264,39 +267,62 @@ updateWorld = function() {
             }
         } 
         else if (G.state === 'world') {
-            // FIXED HUNTING MODE
+            
+            // --- ACTUAL OVERWORLD FIGHT SEQUENCE ---
             if (window.AI_BUDDY.activityTimer > 0) {
                 window.AI_BUDDY.activityTimer--; 
-                window.AI_BUDDY.anim++; // Jiggle to look alive
                 
                 let w = window.AI_BUDDY.huntingTarget;
-                // Verify the dino hasn't been stolen by a real player
                 if (w && G.wilds.includes(w)) {
-                    // Lock the wild dino in combat with the bot!
                     w.dx = 0; 
                     w.dy = 0; 
                     w.mt = 10; 
-                    w.anim++;
                     
-                    // When the 4 second battle finishes...
+                    if (window.AI_BUDDY.activityTimer % 10 === 0) {
+                        window.AI_BUDDY.anim++;
+                        w.anim++;
+                    }
+                    
+                    // The Dinos Lunge and Hit Each Other Every ~0.6 Seconds
+                    if (window.AI_BUDDY.activityTimer % 35 === 0) {
+                        let botAttacks = Math.random() > 0.5;
+                        if (botAttacks) {
+                            // Bot hits wild dino
+                            window.AI_BUDDY.x += 8 * window.AI_BUDDY.face;
+                            setTimeout(() => { window.AI_BUDDY.x -= 8 * window.AI_BUDDY.face; }, 100);
+                            if (typeof spawnParticles !== 'undefined') spawnParticles(w.x, w.y, '#ff4444', 6);
+                        } else {
+                            // Wild dino hits bot
+                            w.x += 8 * w.face;
+                            setTimeout(() => { w.x -= 8 * w.face; }, 100);
+                            if (typeof spawnParticles !== 'undefined') spawnParticles(window.AI_BUDDY.x, window.AI_BUDDY.y, '#ff8844', 6);
+                        }
+                    }
+                    
+                    // The Fight Ends
                     if (window.AI_BUDDY.activityTimer === 1) {
-                        let killedKey = w.key;
-                        let idx = G.wilds.indexOf(w);
-                        if (idx !== -1) G.wilds.splice(idx, 1); // Kill it
+                        let dData = DINOS[w.key];
+                        // Win logic: 80% Common, 60% Rare, 30% Epic/Legendary
+                        let winChance = dData.rarity === 'Common' ? 0.8 : (dData.rarity === 'Rare' ? 0.6 : 0.3);
                         
-                        if (!window.AI_BUDDY.unlocked.includes(killedKey)) {
-                            window.AI_BUDDY.unlocked.push(killedKey);
-                        }
-                        if (Math.random() < 0.3) {
-                            window.AI_BUDDY.dk = window.AI_BUDDY.unlocked[Math.floor(Math.random() * window.AI_BUDDY.unlocked.length)];
-                        }
-                        if (Math.random() < 0.05) {
-                            botSpeak(`I just wrecked a wild ${DINOS[killedKey].name}!`);
+                        if (Math.random() < winChance) {
+                            // BOT WINS!
+                            let idx = G.wilds.indexOf(w);
+                            if (idx !== -1) G.wilds.splice(idx, 1);
+                            
+                            if (!window.AI_BUDDY.unlocked.includes(w.key)) window.AI_BUDDY.unlocked.push(w.key);
+                            if (Math.random() < 0.3) window.AI_BUDDY.dk = w.key;
+                            if (Math.random() < 0.05) botSpeak(`I just wrecked a wild ${dData.name}!`);
+                        } else {
+                            // BOT LOSES! Runs away.
+                            if (Math.random() < 0.15) botSpeak(`Ouch... that ${dData.name} beat me up.`);
+                            window.AI_BUDDY.wanderTimer = 180;
+                            window.AI_BUDDY.targetX = window.AI_BUDDY.x + (Math.random() * 400 - 200);
+                            window.AI_BUDDY.targetY = window.AI_BUDDY.y + (Math.random() * 400 - 200);
                         }
                         window.AI_BUDDY.huntingTarget = null;
                     }
                 } else {
-                    // Target was lost or killed by someone else
                     window.AI_BUDDY.activityTimer = 0;
                     window.AI_BUDDY.huntingTarget = null;
                 }
@@ -321,9 +347,9 @@ updateWorld = function() {
                     const triggerDist = 38 + DINOS[targetWild.key].sz;
                     
                     if (dist < triggerDist) {
-                        // COLLISION! Start a 4 second fake battle.
+                        // START THE 4 SECOND FIGHT
                         window.AI_BUDDY.huntingTarget = targetWild;
-                        window.AI_BUDDY.activityTimer = 240; // 240 ticks = 4 seconds
+                        window.AI_BUDDY.activityTimer = 240; 
                     } else {
                         const speed = 2.2; 
                         window.AI_BUDDY.x += (dx / dist) * speed;
