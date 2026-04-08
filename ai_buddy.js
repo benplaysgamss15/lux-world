@@ -19,8 +19,8 @@ window.AI_BUDDY = {
     following: false,
     x: 0,
     y: 0,
-    targetX: 0, // Used for wandering
-    targetY: 0, // Used for wandering
+    targetX: 0, 
+    targetY: 0, 
     wanderTimer: 0,
     face: 1,
     anim: 0,
@@ -112,7 +112,6 @@ addChatMessage = function(sender, msg) {
     if (G.isHost && window.AI_BUDDY.spawned && sender !== 'dino buddy' && sender !== 'System') {
         const lowerMsg = msg.toLowerCase();
         
-        // Public chat voice commands (optional, you can just use /come now)
         if (lowerMsg.includes('dino buddy, come')) {
             window.AI_BUDDY.following = true;
             botSpeak("Rawr! I'm coming to you!");
@@ -144,8 +143,8 @@ async function askGroq(userMessage) {
     window.AI_BUDDY.isFetching = true;
     
     try {
-        // The Lore Database! Sent invisibly to the AI so it always remembers how to act.
-        const systemLore = `You talk like an AI assistant but you act like a fellow player. In this game players walk around the map and bump into wild dinosaurs to trigger turn based battles. Winning battles earns Buckets which is the currency used in the shop to buy HP, Attack, Speed upgrades, shields, and heals. Defeated dinosaurs are added to the Index so players can equip them and play as them. Map 1 is Isla Uno which has grass and water, and the final boss is the Megalodon. Defeating the Megalodon unlocks Map 2, Volcano Island, where players must dodge falling rocks and fight the boss the Indominus Rex. Beating him unlocks the 3 map. This map has an underwater cave and 2 bosses, in the underwater cave u have to solve 3 puzzles. 1. A wire puzzle. 2. A counting puzzle. 3. A maze puzzle. The 2 bosses are the leviathan and the abyssal serpent. The game also features environmental puzzles like connecting wires at terminals to unlock the bridge that then leads to the abyssal serpent. Players can do friendly PvP battles or team up in Co-op mode where they share buckets but enemies get a 1.55x stat buff. You only talk about this game, dinosaurs, and survival. Keep your answers short and act like a normal but helpful player. U are also made to a company players. THIS IS YOUR MINI DATABASE, CREATE ANSWERS FROM IT.`;
+        // UPDATED LORE: Removed "AI assistant" and "guide" behavior. Forced casual gamer persona.
+        const systemLore = `You are 'dino buddy', a fellow player and casual gamer playing alongside the user in a multiplayer survival game called DinoWorld. DO NOT act like an AI, a bot, or a formal guide. Just act like a normal gamer who happens to know a lot about the game. In this game players walk around the map and bump into wild dinosaurs to trigger turn based battles. Winning battles earns Buckets which is the currency used in the shop to buy HP, Attack, Speed upgrades, shields, and heals. Defeated dinosaurs are added to the Index so players can equip them and play as them. Map 1 is Isla Uno which has grass and water, and the final boss is the Megalodon. Defeating the Megalodon unlocks Map 2, Volcano Island, where players must dodge falling rocks and fight the boss the Indominus Rex. Beating him unlocks the 3 map. This map has an underwater cave and 2 bosses, in the underwater cave u have to solve 3 puzzles. 1. A wire puzzle. 2. A counting puzzle. 3. A maze puzzle. The 2 bosses are the leviathan and the abyssal serpent. The game also features environmental puzzles like connecting wires at terminals to unlock the bridge that then leads to the abyssal serpent. Players can do friendly PvP battles or team up in Co-op mode where they share buckets but enemies get a 1.55x stat buff. You only talk about this game, dinosaurs, and survival. Keep your answers short (1 or 2 sentences max). THIS IS YOUR MINI DATABASE, CREATE ANSWERS FROM IT.`;
 
         const payload = {
             model: window.AI_BUDDY.model,
@@ -153,7 +152,7 @@ async function askGroq(userMessage) {
                 { role: "system", content: systemLore },
                 { role: "user", content: userMessage }
             ],
-            max_tokens: 400   // <-- Updated Token Limit!
+            max_tokens: 400
         };
 
         const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
@@ -187,7 +186,12 @@ async function askGroq(userMessage) {
 const origBotUpdateWorld = typeof updateWorld !== 'undefined' ? updateWorld : null;
 
 function updateBotSync() {
-    // This syncs the bot to the server and mimics YOUR stats so it has a health bar!
+    // HEALTH BAR FIX: Added math fallbacks so maxHp never equals 0 (which breaks game rendering)
+    let safeHp = G.player.hp !== undefined ? Number(G.player.hp) : 100;
+    let safeMaxHp = G.player.maxHp !== undefined ? Number(G.player.maxHp) : 100;
+    if (safeMaxHp <= 0 || isNaN(safeMaxHp)) safeMaxHp = 100; // Prevent divide-by-zero glitches
+    if (isNaN(safeHp)) safeHp = 100;
+
     G.otherPlayers['BOT_1'] = {
         x: window.AI_BUDDY.x, 
         y: window.AI_BUDDY.y,
@@ -197,9 +201,9 @@ function updateBotSync() {
         hat: '', 
         oc: null, 
         name: 'dino buddy',
-        hp: G.player.hp || 100,         // <-- Mimics your health
-        maxHp: G.player.maxHp || 100,   // <-- Mimics your max health
-        lvl: G.player.lvl || 1          // <-- Mimics your level
+        hp: safeHp,         
+        maxHp: safeMaxHp,   
+        lvl: G.player.lvl || 1
     };
 }
 
@@ -209,7 +213,6 @@ updateWorld = function() {
     if (G.isHost && window.AI_BUDDY.spawned) {
         
         if (window.AI_BUDDY.following) {
-            // FOLLOW MODE
             const dx = G.player.x - window.AI_BUDDY.x;
             const dy = G.player.y - window.AI_BUDDY.y;
             const dist = Math.hypot(dx, dy);
@@ -225,14 +228,12 @@ updateWorld = function() {
                 window.AI_BUDDY.face = dx > 0 ? 1 : -1;
             }
         } else {
-            // WANDER MODE: Randomly walk around when not following
             window.AI_BUDDY.wanderTimer--;
             
             if (window.AI_BUDDY.wanderTimer <= 0) {
-                // Pick a random spot near his current location to walk to
                 window.AI_BUDDY.targetX = window.AI_BUDDY.x + (Math.random() * 300 - 150);
                 window.AI_BUDDY.targetY = window.AI_BUDDY.y + (Math.random() * 300 - 150);
-                window.AI_BUDDY.wanderTimer = Math.random() * 120 + 60; // Wait before picking new spot
+                window.AI_BUDDY.wanderTimer = Math.random() * 120 + 60; 
             }
             
             const dx = window.AI_BUDDY.targetX - window.AI_BUDDY.x;
@@ -240,7 +241,7 @@ updateWorld = function() {
             const dist = Math.hypot(dx, dy);
             
             if (dist > 10) {
-                const speed = 1.2; // Walks slower when just wandering
+                const speed = 1.2; 
                 window.AI_BUDDY.x += (dx / dist) * speed;
                 window.AI_BUDDY.y += (dy / dist) * speed;
                 window.AI_BUDDY.anim++;
