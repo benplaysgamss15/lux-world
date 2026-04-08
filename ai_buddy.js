@@ -1,5 +1,5 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (GROQ V5.2)
+// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6)
 // ==========================================
 
 // Anti-Ghosting Safeguard
@@ -13,7 +13,7 @@ console.log("Loading AI Buddy Script...");
 // ── 1. AI BUDDY CONFIG & STATE ──
 window.AI_BUDDY = {
     active: true,
-    apiKey: null,
+    apiKey: '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', // HARDCODED PUBLIC KEY
     model: 'groq/compound-mini',
     spawned: false,
     following: false,
@@ -49,20 +49,9 @@ sendChatUI = function() {
         const msg = chatInputEl.value.trim();
         
         if (msg.startsWith('/')) {
-            if (msg.startsWith('/api')) {
-                const userKey = prompt("🦖 DINO BUDDY SETUP:\nPlease paste your GROQ API Key here:");
-                if (userKey && userKey.trim() !== "") {
-                    window.AI_BUDDY.apiKey = userKey.trim();
-                    addChatMessage('System', `API Key saved! Model set to ${window.AI_BUDDY.model}. Type /summon`);
-                } else {
-                    addChatMessage('System', 'API Key setup cancelled.');
-                }
-            } 
-            else if (msg === '/summon') {
+            if (msg === '/summon') {
                 if (!G.isHost) {
                     addChatMessage('System', 'Only the Room Host can summon the dino buddy!');
-                } else if (!window.AI_BUDDY.apiKey) {
-                    addChatMessage('System', 'You must set an API key first! Type /api');
                 } else {
                     window.AI_BUDDY.spawned = true;
                     window.AI_BUDDY.following = false;
@@ -90,7 +79,7 @@ sendChatUI = function() {
                 addChatMessage('System', 'dino buddy went home.');
             } 
             else {
-                addChatMessage('System', 'Commands: /api, /summon, /come, /stop, /dismiss');
+                addChatMessage('System', 'Commands: /summon, /come, /stop, /dismiss');
             }
             
             chatInputEl.value = '';
