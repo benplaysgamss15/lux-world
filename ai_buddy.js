@@ -1,5 +1,5 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6.1)
+// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6)
 // ==========================================
 
 // Anti-Ghosting Safeguard
@@ -16,12 +16,10 @@ window.AI_BUDDY = {
     apiKey: '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', // HARDCODED PUBLIC KEY
     model: 'groq/compound-mini',
     spawned: false,
-    
-    // NEW: Replaced following boolean with specific Player IDs + Memory Array
-    followingId: null, 
-    coopPartnerId: null, 
-    memory: [], 
-    
+    following: false,
+    followingId: null, // Tracks who he is following
+    coopPartnerId: null, // Tracks who he is fighting for
+    memory: [], // 1-Minute Chat History Array
     x: 0,
     y: 0,
     targetX: 0, 
@@ -59,7 +57,9 @@ sendChatUI = function() {
                     addChatMessage('System', 'Only the Room Host can summon the dino buddy!');
                 } else {
                     window.AI_BUDDY.spawned = true;
+                    window.AI_BUDDY.following = false;
                     window.AI_BUDDY.followingId = null;
+                    window.AI_BUDDY.coopPartnerId = null;
                     window.AI_BUDDY.x = G.player.x;
                     window.AI_BUDDY.y = G.player.y;
                     window.AI_BUDDY.targetX = window.AI_BUDDY.x;
@@ -70,10 +70,12 @@ sendChatUI = function() {
                 }
             } 
             else if (msg === '/come') {
-                window.AI_BUDDY.followingId = 'host';
+                window.AI_BUDDY.following = true;
+                window.AI_BUDDY.followingId = G.player?.name || 'host';
                 addChatMessage('System', 'Dino buddy is now following you.');
             }
             else if (msg === '/stop') {
+                window.AI_BUDDY.following = false;
                 window.AI_BUDDY.followingId = null;
                 addChatMessage('System', 'Dino buddy is now wandering/hunting.');
             }
@@ -81,7 +83,6 @@ sendChatUI = function() {
                 window.AI_BUDDY.spawned = false;
                 delete G.otherPlayers['BOT_1'];
                 if (G.coop.partnerId === 'BOT_1') breakCoop("Dino buddy went home.");
-                window.AI_BUDDY.coopPartnerId = null;
                 addChatMessage('System', 'dino buddy went home.');
             } 
             else {
@@ -108,27 +109,31 @@ const origAddChatMessage = typeof addChatMessage !== 'undefined' ? addChatMessag
 addChatMessage = function(sender, msg) {
     if (origAddChatMessage) origAddChatMessage(sender, msg);
     
+    // 1-Minute Memory Storage
+    if (window.AI_BUDDY) {
+        window.AI_BUDDY.memory.push({
+            role: sender === 'dino buddy' ? 'assistant' : 'user',
+            content: `${sender}: ${msg}`,
+            time: Date.now()
+        });
+    }
+    
     if (G.isHost && window.AI_BUDDY.spawned && sender !== 'dino buddy' && sender !== 'System') {
         const lowerMsg = msg.toLowerCase();
         
-        // NEW: Figure out exactly which player is talking to him
-        let senderId = 'host';
-        if (sender !== (G.username || 'You') && sender !== 'Host' && sender !== 'Player') {
-            for (let id in G.otherPlayers) {
-                if (G.otherPlayers[id].name === sender) { senderId = id; break; }
-            }
-        }
-        
-        if (lowerMsg.includes('dino buddy, come')) {
-            window.AI_BUDDY.followingId = senderId;
+        // Intercept /come for ANY player
+        if (lowerMsg.includes('dino buddy, come') || lowerMsg === '/come') {
+            window.AI_BUDDY.following = true;
+            window.AI_BUDDY.followingId = sender;
             botSpeak(`Rawr! I'm coming to you, ${sender}!`);
         } 
-        else if (lowerMsg.includes('dino buddy, stop')) {
+        else if (lowerMsg.includes('dino buddy, stop') || lowerMsg === '/stop') {
+            window.AI_BUDDY.following = false;
             window.AI_BUDDY.followingId = null;
             botSpeak("Okay, I will hunt around here!");
         }
         else if (lowerMsg.includes('dino buddy')) {
-            askGroq(sender, msg); 
+            askGroq(msg); 
         }
     }
 };
@@ -142,39 +147,46 @@ function botSpeak(text) {
     }
 }
 
-// ── 4. GROQ API CONNECTION (WITH MEMORY & DATA SCRAPING) ──
-async function askGroq(senderName, userMessage) {
+// ── 4. GROQ API CONNECTION ──
+async function askGroq(userMessage) {
     if (window.AI_BUDDY.isFetching) return;
     if (!window.AI_BUDDY.apiKey) return;
     
     window.AI_BUDDY.isFetching = true;
     
     try {
-        // NEW: Scrape exact game stats from data.js silently
-        let dStats = "";
-        if (typeof DINOS !== 'undefined') {
-            dStats = Object.keys(DINOS).map(k => `${DINOS[k].name}(${DINOS[k].hp}HP, ${DINOS[k].atk}Atk, ${DINOS[k].rw}Buckets)`).join(", ");
-        }
-
-        // NEW: Updated casual persona + dynamic stats injection
-        const systemLore = `You are 'dino buddy', a casual gamer playing DinoWorld. DO NOT act like an AI, bot, or formal guide. Act like a normal gamer who happens to know a lot about the game. Use lowercase sometimes, be chill. In this game players walk around the map and bump into wild dinosaurs to trigger turn based battles. Winning battles earns Buckets which is the currency used in the shop. Map 1 is Isla Uno (Boss: Megalodon). Map 2 is Volcano Island (Boss: Indominus Rex). Map 3 has an underwater cave with 3 puzzles (wire, counting, maze) and 2 bosses (Leviathan, Abyssal Serpent). You can do PvP or Co-op.
-        
-        EXACT GAME STATS (Act like you memorized the wiki, NEVER say you read the code): ${dStats}.
-        SHOP COSTS: Max HP(+28)=25 buckets, Atk(+5)=30 buckets, Spd(+0.5)=20 buckets, Shield(+15%)=40 buckets, Heal(+10%)=5 buckets.
-        
-        CRITICAL RULE: YOU MUST REPLY IN EXACTLY 1 VERY SHORT CASUAL SENTENCE. NO MORE THAN 15 WORDS TOTAL. The person talking to you is named: ${senderName}.`;
-
-        // NEW: 1-Minute Conversation Memory
+        // 1-Minute Memory Cleanup
         const now = Date.now();
-        window.AI_BUDDY.memory.push({ role: "user", content: `${senderName}: ${userMessage}`, time: now });
-        window.AI_BUDDY.memory = window.AI_BUDDY.memory.filter(m => now - m.time < 60000); 
+        window.AI_BUDDY.memory = window.AI_BUDDY.memory.filter(m => now - m.time <= 60000);
+
+        // Silent Data-Scraper (Reads global stats securely)
+        let scrapedData = "";
+        try {
+            if (typeof DINOS !== 'undefined') scrapedData += "DINO STATS: " + JSON.stringify(DINOS).substring(0, 1500) + " | ";
+            if (typeof SHOP !== 'undefined') scrapedData += "SHOP: " + JSON.stringify(SHOP).substring(0, 500);
+        } catch(e) {}
+
+        const systemLore = `You are 'dino buddy', a fellow player and casual gamer playing alongside the user in a multiplayer survival game called DinoWorld. DO NOT act like an AI, a bot, or a formal guide. Just act like a normal gamer who happens to know a lot about the game. In this game players walk around the map and bump into wild dinosaurs to trigger turn based battles. Winning battles earns Buckets which is the currency used in the shop to buy HP, Attack, Speed upgrades, shields, and heals. Defeated dinosaurs are added to the Index so players can equip them and play as them. Map 1 is Isla Uno which has grass and water, and the final boss is the Megalodon. Defeating the Megalodon unlocks Map 2, Volcano Island, where players must dodge falling rocks and fight the boss the Indominus Rex. Beating him unlocks the 3 map. This map has an underwater cave and 2 bosses, in the underwater cave u have to solve 3 puzzles. 1. A wire puzzle. 2. A counting puzzle. 3. A maze puzzle. The 2 bosses are the leviathan and the abyssal serpent. The game also features environmental puzzles like connecting wires at terminals to unlock the bridge that then leads to the abyssal serpent. Players can do friendly PvP battles or team up in Co-op mode where they share buckets but enemies get a 1.55x stat buff. You only talk about this game, dinosaurs, and survival. 
         
-        const apiMessages = [{ role: "system", content: systemLore }];
-        window.AI_BUDDY.memory.forEach(m => apiMessages.push({ role: m.role, content: m.content }));
+        Game Data (Stats you memorized from the wiki): ${scrapedData}
+
+        CRITICAL RULE: YOU MUST REPLY IN EXACTLY 1 VERY SHORT SENTENCE. NO MORE THAN 15 WORDS TOTAL. TALK LIKE A NORMAL GAMER IN CHAT. NEVER MENTION THE CODE, THE DATA SCRAPER, OR "THE WIKI DATA". Just act like you naturally memorized the game stats.`;
+
+        const messages = [{ role: "system", content: systemLore }];
+        
+        // Push 60s Chat Memory into context
+        window.AI_BUDDY.memory.forEach(m => {
+            messages.push({ role: m.role, content: m.content });
+        });
+
+        // Ensure current message is processed if missed by sync timing
+        if (!messages.find(m => m.content.includes(userMessage))) {
+            messages.push({ role: "user", content: `user: ${userMessage}` });
+        }
 
         const payload = {
             model: window.AI_BUDDY.model,
-            messages: apiMessages,
+            messages: messages,
             max_tokens: 150 
         };
 
@@ -194,9 +206,7 @@ async function askGroq(senderName, userMessage) {
             botSpeak(`Rawr... Groq Error: ${data.error.message.split('.')[0]}`);
         } 
         else if (data.choices && data.choices.length > 0) {
-            let reply = data.choices[0].message.content.trim();
-            botSpeak(reply);
-            window.AI_BUDDY.memory.push({ role: "assistant", content: reply, time: Date.now() });
+            botSpeak(data.choices[0].message.content.trim());
         }
         
     } catch (err) {
@@ -205,46 +215,6 @@ async function askGroq(senderName, userMessage) {
     }
     
     window.AI_BUDDY.isFetching = false;
-}
-
-// ── 4.5. MONKEY PATCH: CO-OP GUEST ROUTING ──
-const origSendCoop = typeof sendCoop !== 'undefined' ? sendCoop : null;
-if (origSendCoop) {
-    sendCoop = function(data) {
-        if (data.target === 'BOT_1') {
-            if (G.isHost) handleBotCoop(data);
-            else { data.target = 'host'; data.forBot = true; origSendCoop(data); }
-            return;
-        }
-        origSendCoop(data);
-    };
-}
-
-const origHandleCoopMessage = typeof handleCoopMessage !== 'undefined' ? handleCoopMessage : null;
-if (origHandleCoopMessage) {
-    handleCoopMessage = function(data) {
-        if (data.forBot && G.isHost && window.AI_BUDDY.spawned) {
-            handleBotCoop(data);
-            return;
-        }
-        origHandleCoopMessage(data);
-    };
-}
-
-function handleBotCoop(data) {
-    if (data.type === 'coop_request') {
-        botSpeak(`Yeah ${data.name}! Let's team up!`);
-        window.AI_BUDDY.coopPartnerId = data.sender;
-        if (origSendCoop) origSendCoop({ type: 'coop_reply', accept: true, sender: 'BOT_1', name: 'dino buddy', target: data.sender });
-    } else if (data.type === 'coop_break') {
-        window.AI_BUDDY.coopPartnerId = null;
-    } else if (data.type === 'coop_battle_action' && data.action === 'enemy_attack') {
-        setTimeout(() => {
-            const botDino = DINOS[window.AI_BUDDY.dk] || DINOS['raptor'];
-            const dmg = Math.max(1, Math.floor(botDino.atk * R_MULT[botDino.rarity]));
-            if (origSendCoop) origSendCoop({ type: 'coop_battle_action', target: window.AI_BUDDY.coopPartnerId, action: 'player_attack', dmg: dmg, sender: 'BOT_1' });
-        }, 1000);
-    }
 }
 
 // ── 5. MONKEY PATCH: BOT MOVEMENT, HUNTING & BATTLE LOOP ──
@@ -261,21 +231,24 @@ function updateBotSync() {
         hp: 100,         
         mhp: 100, 
         lvl: G.level,
-        coopPartner: window.AI_BUDDY.coopPartnerId ? 'bonded' : null 
+        coopPartner: window.AI_BUDDY.coopPartnerId || (G.coop.partnerId === 'BOT_1' ? 'host' : null) 
     };
 }
 
-// 5A. MASTER GAME LOOP INTERCEPT (For Host Co-op Attacking)
+// 5A. MASTER GAME LOOP INTERCEPT (Bulletproof Co-op Attacking)
 const origMasterUpdate = typeof update !== 'undefined' ? update : null;
 update = function() {
     if (origMasterUpdate) origMasterUpdate();
     
+    // Checks if the bot is alive, in Co-op mode, and in the battle screen
     if (G.isHost && window.AI_BUDDY.spawned) {
-        if (G.state === 'battle' && G.battle.isCoop && window.AI_BUDDY.coopPartnerId === 'host') {
+        if (G.state === 'battle' && G.battle.isCoop && (G.coop.partnerId === 'BOT_1' || window.AI_BUDDY.coopPartnerId)) {
             
+            // Wait until it is explicitly his turn, and no attack animations are playing
             if (G.battle.turn === 'partner' && !G.battle.anim && !G.battle.res) {
                 window.AI_BUDDY.battleWait++;
                 
+                // Wait ~1 second before attacking so it feels human
                 if (window.AI_BUDDY.battleWait > 60) {
                     window.AI_BUDDY.battleWait = 0;
                     
@@ -287,6 +260,7 @@ update = function() {
                     }
                 }
             } else {
+                // Reset the timer if it's not his turn
                 window.AI_BUDDY.battleWait = 0;
             }
         }
@@ -300,35 +274,36 @@ updateWorld = function() {
     
     if (G.isHost && window.AI_BUDDY.spawned) {
         
+        // Intercept Co-Op Add Friend Clicks for ANY Player
         if (G.coop.reqTo === 'BOT_1') {
             G.coop.reqTo = null; 
+            window.AI_BUDDY.coopPartnerId = window.AI_BUDDY.followingId || G.player.name || 'host'; // Track who clicked
             botSpeak("Yeah! Let's team up!");
             if (typeof bondWithPartner === 'function') bondWithPartner('BOT_1', 'dino buddy'); 
-            window.AI_BUDDY.coopPartnerId = 'host';
         }
         
-        // NEW: Determine exactly who the bot is following!
-        let activeTarget = window.AI_BUDDY.followingId || window.AI_BUDDY.coopPartnerId;
-        let tx = null, ty = null;
-        
-        if (activeTarget === 'host') {
-            tx = G.player.x; ty = G.player.y;
-        } else if (activeTarget && G.otherPlayers[activeTarget]) {
-            tx = G.otherPlayers[activeTarget].x; ty = G.otherPlayers[activeTarget].y;
-        } else if (activeTarget) {
-            window.AI_BUDDY.followingId = null;
-            if (window.AI_BUDDY.coopPartnerId === activeTarget) window.AI_BUDDY.coopPartnerId = null;
-            activeTarget = null;
-        }
-        
-        if (activeTarget && tx !== null) {
-            const dx = tx - window.AI_BUDDY.x;
-            const dy = ty - window.AI_BUDDY.y;
+        // Follow Logic for ANY Player Target
+        if (window.AI_BUDDY.following || G.coop.partnerId === 'BOT_1' || window.AI_BUDDY.coopPartnerId) {
+            let targetPlayer = G.player; // Defaults to host
+            let targetId = window.AI_BUDDY.coopPartnerId || window.AI_BUDDY.followingId;
+            
+            // Dynamically locate the targeted player across the network
+            if (targetId && targetId !== G.player.name && targetId !== 'host' && targetId !== G.player.id) {
+                for (let id in G.otherPlayers) {
+                    if (G.otherPlayers[id].name === targetId || id === targetId) {
+                        targetPlayer = G.otherPlayers[id];
+                        break;
+                    }
+                }
+            }
+
+            const dx = targetPlayer.x - window.AI_BUDDY.x;
+            const dy = targetPlayer.y - window.AI_BUDDY.y;
             const dist = Math.hypot(dx, dy);
             
             if (dist > 1000) {
-                window.AI_BUDDY.x = tx;
-                window.AI_BUDDY.y = ty;
+                window.AI_BUDDY.x = targetPlayer.x;
+                window.AI_BUDDY.y = targetPlayer.y;
             } else if (dist > 60) {
                 const speed = 2.5;
                 window.AI_BUDDY.x += (dx / dist) * speed;
@@ -339,6 +314,7 @@ updateWorld = function() {
         } 
         else if (G.state === 'world') {
             
+            // --- ACTUAL OVERWORLD FIGHT SEQUENCE ---
             if (window.AI_BUDDY.activityTimer > 0) {
                 window.AI_BUDDY.activityTimer--; 
                 
@@ -353,24 +329,30 @@ updateWorld = function() {
                         w.anim++;
                     }
                     
+                    // The Dinos Lunge and Hit Each Other Every ~0.6 Seconds
                     if (window.AI_BUDDY.activityTimer % 35 === 0) {
                         let botAttacks = Math.random() > 0.5;
                         if (botAttacks) {
+                            // Bot hits wild dino
                             window.AI_BUDDY.x += 8 * window.AI_BUDDY.face;
                             setTimeout(() => { window.AI_BUDDY.x -= 8 * window.AI_BUDDY.face; }, 100);
                             if (typeof spawnParticles !== 'undefined') spawnParticles(w.x, w.y, '#ff4444', 6);
                         } else {
+                            // Wild dino hits bot
                             w.x += 8 * w.face;
                             setTimeout(() => { w.x -= 8 * w.face; }, 100);
                             if (typeof spawnParticles !== 'undefined') spawnParticles(window.AI_BUDDY.x, window.AI_BUDDY.y, '#ff8844', 6);
                         }
                     }
                     
+                    // The Fight Ends
                     if (window.AI_BUDDY.activityTimer === 1) {
                         let dData = DINOS[w.key];
+                        // Win logic: 80% Common, 60% Rare, 30% Epic/Legendary
                         let winChance = dData.rarity === 'Common' ? 0.8 : (dData.rarity === 'Rare' ? 0.6 : 0.3);
                         
                         if (Math.random() < winChance) {
+                            // BOT WINS!
                             let idx = G.wilds.indexOf(w);
                             if (idx !== -1) G.wilds.splice(idx, 1);
                             
@@ -378,6 +360,7 @@ updateWorld = function() {
                             if (Math.random() < 0.3) window.AI_BUDDY.dk = w.key;
                             if (Math.random() < 0.05) botSpeak(`I just wrecked a wild ${dData.name}!`);
                         } else {
+                            // BOT LOSES! Runs away.
                             if (Math.random() < 0.15) botSpeak(`Ouch... that ${dData.name} beat me up.`);
                             window.AI_BUDDY.wanderTimer = 180;
                             window.AI_BUDDY.targetX = window.AI_BUDDY.x + (Math.random() * 400 - 200);
@@ -410,6 +393,7 @@ updateWorld = function() {
                     const triggerDist = 38 + DINOS[targetWild.key].sz;
                     
                     if (dist < triggerDist) {
+                        // START THE 4 SECOND FIGHT
                         window.AI_BUDDY.huntingTarget = targetWild;
                         window.AI_BUDDY.activityTimer = 240; 
                     } else {
