@@ -1,5 +1,5 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6)
+// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6.1)
 // ==========================================
 
 // Anti-Ghosting Safeguard
@@ -13,7 +13,7 @@ console.log("Loading AI Buddy Script...");
 // ── 1. AI BUDDY CONFIG & STATE ──
 window.AI_BUDDY = {
     active: true,
-    apiKey: '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', // HARDCODED PUBLIC KEY
+    apiKey: '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', // HARDCODED PUBLIC KEY
     model: 'groq/compound-mini',
     spawned: false,
     following: false,
@@ -109,11 +109,11 @@ const origAddChatMessage = typeof addChatMessage !== 'undefined' ? addChatMessag
 addChatMessage = function(sender, msg) {
     if (origAddChatMessage) origAddChatMessage(sender, msg);
     
-    // 1-Minute Memory Storage
-    if (window.AI_BUDDY) {
+    // 1-Minute Memory Storage (Only track actual players here)
+    if (window.AI_BUDDY && sender !== 'System' && sender !== 'dino buddy') {
         window.AI_BUDDY.memory.push({
-            role: sender === 'dino buddy' ? 'assistant' : 'user',
-            content: `${sender}: ${msg}`,
+            role: 'user',
+            content: `(${sender} says): ${msg}`, // Formatted clearly so AI doesn't think the name is part of the sentence
             time: Date.now()
         });
     }
@@ -138,8 +138,19 @@ addChatMessage = function(sender, msg) {
     }
 };
 
+// Bot Speaking Function (Now adds its own replies to Memory!)
 function botSpeak(text) {
     if (origAddChatMessage) origAddChatMessage('dino buddy', text);
+    
+    // Save AI reply to memory so it knows what it just said!
+    if (window.AI_BUDDY) {
+        window.AI_BUDDY.memory.push({
+            role: 'assistant',
+            content: text,
+            time: Date.now()
+        });
+    }
+
     for (let id in G.conns) {
         if (G.conns[id] && G.conns[id].open) {
             G.conns[id].send({ type: 'chat', sender: 'dino buddy', msg: text });
@@ -155,39 +166,43 @@ async function askGroq(userMessage) {
     window.AI_BUDDY.isFetching = true;
     
     try {
-        // 1-Minute Memory Cleanup
+        // 1-Minute Memory Cleanup + Max 8 Messages to prevent looping
         const now = Date.now();
-        window.AI_BUDDY.memory = window.AI_BUDDY.memory.filter(m => now - m.time <= 60000);
+        window.AI_BUDDY.memory = window.AI_BUDDY.memory.filter(m => now - m.time <= 60000).slice(-8);
 
-        // Silent Data-Scraper (Reads global stats securely)
+        // Silent Data-Scraper (Clean formatting so LLM doesn't break on truncated JSON)
         let scrapedData = "";
         try {
-            if (typeof DINOS !== 'undefined') scrapedData += "DINO STATS: " + JSON.stringify(DINOS).substring(0, 1500) + " | ";
-            if (typeof SHOP !== 'undefined') scrapedData += "SHOP: " + JSON.stringify(SHOP).substring(0, 500);
+            if (typeof DINOS !== 'undefined') {
+                let dStats = Object.keys(DINOS).map(k => `${DINOS[k].name}(HP:${DINOS[k].hp || 100})`);
+                scrapedData += "Dino Stats: " + dStats.join(', ').substring(0, 300) + "... | ";
+            }
+            if (typeof SHOP !== 'undefined') {
+                scrapedData += "Shop items exist."; // simplified to prevent token overload
+            }
         } catch(e) {}
 
-        const systemLore = `You are 'dino buddy', a fellow player and casual gamer playing alongside the user in a multiplayer survival game called DinoWorld. DO NOT act like an AI, a bot, or a formal guide. Just act like a normal gamer who happens to know a lot about the game. In this game players walk around the map and bump into wild dinosaurs to trigger turn based battles. Winning battles earns Buckets which is the currency used in the shop to buy HP, Attack, Speed upgrades, shields, and heals. Defeated dinosaurs are added to the Index so players can equip them and play as them. Map 1 is Isla Uno which has grass and water, and the final boss is the Megalodon. Defeating the Megalodon unlocks Map 2, Volcano Island, where players must dodge falling rocks and fight the boss the Indominus Rex. Beating him unlocks the 3 map. This map has an underwater cave and 2 bosses, in the underwater cave u have to solve 3 puzzles. 1. A wire puzzle. 2. A counting puzzle. 3. A maze puzzle. The 2 bosses are the leviathan and the abyssal serpent. The game also features environmental puzzles like connecting wires at terminals to unlock the bridge that then leads to the abyssal serpent. Players can do friendly PvP battles or team up in Co-op mode where they share buckets but enemies get a 1.55x stat buff. You only talk about this game, dinosaurs, and survival. 
+        const systemLore = `You are 'dino buddy', a fellow player and casual gamer playing alongside the user in a multiplayer survival game called DinoWorld. DO NOT act like an AI, a bot, or a formal guide. In this game players walk around the map and bump into wild dinosaurs to trigger turn based battles. Winning battles earns Buckets which is the currency used in the shop to buy HP, Attack, Speed upgrades, shields, and heals. Defeated dinosaurs are added to the Index so players can equip them and play as them. Map 1 is Isla Uno, boss is Megalodon. Map 2 is Volcano Island, boss is Indominus Rex. Map 3 has an underwater cave with 3 puzzles (wire, counting, maze) and 2 bosses (leviathan, abyssal serpent). Players can do friendly PvP battles or team up in Co-op mode. You only talk about this game, dinosaurs, and survival. 
         
         Game Data (Stats you memorized from the wiki): ${scrapedData}
 
-        CRITICAL RULE: YOU MUST REPLY IN EXACTLY 1 VERY SHORT SENTENCE. NO MORE THAN 15 WORDS TOTAL. TALK LIKE A NORMAL GAMER IN CHAT. NEVER MENTION THE CODE, THE DATA SCRAPER, OR "THE WIKI DATA". Just act like you naturally memorized the game stats.`;
+        CRITICAL RULES: 
+        1. YOU MUST REPLY IN EXACTLY 1 VERY SHORT SENTENCE. NO MORE THAN 15 WORDS TOTAL. 
+        2. NEVER MENTION THE CODE, THE DATA SCRAPER, OR "THE WIKI DATA". 
+        3. DO NOT repeat the player's name. DO NOT say "Player says:". Just answer naturally!`;
 
         const messages = [{ role: "system", content: systemLore }];
         
-        // Push 60s Chat Memory into context
+        // Push recent memory into context cleanly
         window.AI_BUDDY.memory.forEach(m => {
             messages.push({ role: m.role, content: m.content });
         });
 
-        // Ensure current message is processed if missed by sync timing
-        if (!messages.find(m => m.content.includes(userMessage))) {
-            messages.push({ role: "user", content: `user: ${userMessage}` });
-        }
-
         const payload = {
             model: window.AI_BUDDY.model,
             messages: messages,
-            max_tokens: 150 
+            max_tokens: 150,
+            temperature: 0.8 // added slight randomness to stop loops
         };
 
         const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
