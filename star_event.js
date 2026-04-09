@@ -5,17 +5,17 @@
 // 1. Add Ben to the DINOS registry
 DINOS['ben'] = {
     name: 'Noob Ben',
-    rarity: 'Boss', // Boss rarity for red text and heavy stat scaling
-    col: '#ffcc00', // Base yellow (overridden by custom OC)
+    rarity: 'Boss', // Red text, heavy scaling
+    col: '#ffcc00', // Base yellow (overridden by custom OC below)
     acc: '#00aa00', 
-    hp: 3334, // Scales to ~5000 HP in battle
-    atk: 167, // Scales to ~250 DMG in battle
+    hp: 3334, // Scales to ~5000 HP
+    atk: 167, // Scales to ~250 DMG
     spd: 5.5,
     sz: 36, // T-Rex size
     sp: 0, // 0 spawn rate so he NEVER spawns naturally
-    rw: 10000, // Exactly 10,000 buckets reward!
+    rw: 10000, // Exactly 10,000 buckets!
     em: '⭐',
-    lvl: -1 // Hides him from the Index entirely (Easter Egg!)
+    lvl: -1 // Hides him from the Index
 };
 
 // 2. Event State Tracker
@@ -23,6 +23,7 @@ const StarEvent = {
     active: false,
     timer: 0,
     stars: [],
+    tickCounter: 0, // Custom counter for reliable 1-minute tracking
     forceBen: false
 };
 
@@ -31,6 +32,7 @@ function triggerStarEvent() {
     StarEvent.active = true;
     StarEvent.timer = 600; // 10 seconds at 60 FPS
     StarEvent.stars = [];
+    StarEvent.tickCounter = 0; // Reset timer
     
     if (typeof addChatMessage === 'function') {
         addChatMessage('System', '✨ A Sweet Star Fall has begun! Look at the sky!');
@@ -47,9 +49,9 @@ function spawnBen() {
         addChatMessage('System', '⭐ A legendary Ben has descended from the stars!');
     }
     
-    // Find a valid land tile near the player so they don't miss him
+    // Find a valid land tile near the player
     for (let attempt = 0; attempt < 50; attempt++) {
-        const range = 350;
+        const range = 400; // Spawn near player view
         const tx = Math.floor(Math.max(TS, Math.min((WS-1)*TS, G.player.x + (Math.random()*range*2 - range))) / TS);
         const ty = Math.floor(Math.max(TS, Math.min((WS-1)*TS, G.player.y + (Math.random()*range*2 - range))) / TS);
         
@@ -59,14 +61,14 @@ function spawnBen() {
                 x: tx * TS + TS / 2,
                 y: ty * TS + TS / 2,
                 anim: 0, mt: 0, dx: 0, dy: 0, face: 1,
-                isBoss: false // Kept false so we don't accidentally triple his 10k reward
+                isBoss: false // Kept false so we don't accidentally triple his reward
             });
             break;
         }
     }
 }
 
-// 4. Intercept the Cheat Prompt safely for "dev_star"
+// 4. Intercept the Cheat Prompt safely
 const originalPrompt = window.prompt;
 window.prompt = function(msg, defaultText) {
     const res = originalPrompt(msg, defaultText);
@@ -78,162 +80,147 @@ window.prompt = function(msg, defaultText) {
         if (typeof addChatMessage === 'function') {
             addChatMessage('System', "Cheat Activated: Sweet Star Fall (with Ben!)");
         }
-        return null; // Return null so original handler ignores it
+        return null;
     }
     return res;
 };
 
-// 5. Override Game Logic (Update Loop)
-const _originalUpdateWorld = updateWorld;
-updateWorld = function() {
-    _originalUpdateWorld();
+// 5. Safely Hook into the Game Loop (Wait 200ms to ensure all files loaded)
+setTimeout(() => {
+    // --- HOOK UPDATE LOOP (For stars and timer) ---
+    const _originalUpdate = window.update;
+    window.update = function() {
+        _originalUpdate();
 
-    // Trigger every 1 minute (3600 ticks)
-    if (!StarEvent.active && G.tick % 3600 === 0 && G.tick > 0) {
-        triggerStarEvent();
-    } else if (StarEvent.active) {
-        StarEvent.timer--;
-        
-        // Generate falling stars
-        if (Math.random() < 0.5) {
-            StarEvent.stars.push({
-                x: G.cam.x + Math.random() * canvas.width,
-                y: G.cam.y - 50 - Math.random() * 50,
-                vx: -2 + Math.random() * 1.5,
-                vy: 7 + Math.random() * 4,
-                life: 150
+        if (G.state === 'world') {
+            StarEvent.tickCounter++;
+            
+            // Trigger every 1 minute (3600 ticks)
+            if (!StarEvent.active && StarEvent.tickCounter >= 3600) {
+                triggerStarEvent();
+            } else if (StarEvent.active) {
+                StarEvent.timer--;
+                
+                // Spawn falling stars relative to camera
+                if (Math.random() < 0.6) {
+                    StarEvent.stars.push({
+                        x: G.cam.x + Math.random() * canvas.width * 1.5 - 200,
+                        y: G.cam.y - 50 - Math.random() * 50,
+                        vx: -3 + Math.random() * 2,
+                        vy: 9 + Math.random() * 5,
+                        life: 120
+                    });
+                }
+                
+                // Move Stars
+                StarEvent.stars.forEach(s => {
+                    s.x += s.vx;
+                    s.y += s.vy;
+                    s.life--;
+                });
+                StarEvent.stars = StarEvent.stars.filter(s => s.life > 0);
+
+                if (StarEvent.timer <= 0) {
+                    StarEvent.active = false;
+                }
+            }
+        }
+    };
+
+    // --- HOOK HUD (For Dark Overlay and Visuals) ---
+    const _originalDrawHUD = window.drawHUD;
+    window.drawHUD = function() {
+        if (G.state === 'world' && StarEvent.active) {
+            // Darken Sky OVER the world, but UNDER the HUD UI
+            ctx.fillStyle = 'rgba(0, 5, 20, 0.65)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Stars with glowing trails!
+            ctx.save();
+            ctx.translate(-G.cam.x, -G.cam.y);
+            StarEvent.stars.forEach(s => {
+                // Glow
+                ctx.fillStyle = 'rgba(255, 255, 200, 0.4)';
+                ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, Math.PI*2); ctx.fill();
+                // Core
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath(); ctx.arc(s.x, s.y, 2.5, 0, Math.PI*2); ctx.fill();
+                // Trail
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(s.x, s.y);
+                ctx.lineTo(s.x - s.vx * 4, s.y - s.vy * 4);
+                ctx.stroke();
             });
+            ctx.restore();
+
+            // Screen Warning
+            ctx.fillStyle = '#ffdd44';
+            ctx.shadowColor = '#000';
+            ctx.shadowBlur = 6;
+            ctx.font = 'bold 22px Courier New';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`⭐ SWEET STAR FALL! ENJOY THE VIEW! ${Math.ceil(StarEvent.timer/60)}s`, canvas.width/2, 90);
+            ctx.shadowBlur = 0;
         }
-        
-        StarEvent.stars.forEach(s => {
-            s.x += s.vx;
-            s.y += s.vy;
-            s.life--;
-        });
-        StarEvent.stars = StarEvent.stars.filter(s => s.life > 0);
+        _originalDrawHUD(); // Render actual HUD on top
+    };
 
-        if (StarEvent.timer <= 0) {
-            StarEvent.active = false;
-        }
-    }
-};
-
-// 6. Override Drawing Logic (Visuals, Colors, and Hats)
-const _originalDrawHUD = drawHUD;
-drawHUD = function() {
-    if (G.state === 'world' && StarEvent.active) {
-        // Darken Sky
-        ctx.fillStyle = 'rgba(0, 5, 25, 0.45)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw Stars
-        ctx.save();
-        ctx.translate(-G.cam.x, -G.cam.y);
-        StarEvent.stars.forEach(s => {
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = 'rgba(255, 255, 200, 0.4)';
-            ctx.beginPath(); ctx.arc(s.x, s.y, 9, 0, Math.PI*2); ctx.fill();
-        });
-        ctx.restore();
-
-        // Screen Warning
-        ctx.fillStyle = '#ffdd44';
-        ctx.shadowColor = '#000';
-        ctx.shadowBlur = 4;
-        ctx.font = 'bold 22px Courier New';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(`⭐ SWEET STAR FALL! ENJOY THE VIEW! ${Math.ceil(StarEvent.timer/60)}s`, canvas.width/2, 90);
-        ctx.shadowBlur = 0;
-    }
-    _originalDrawHUD();
-};
-
-const _originalDrawDino = drawDino;
-drawDino = function(key, cx, cy, face, af, sc, alpha, oc) {
-    if (key === 'ben') {
-        // Ben is fundamentally a T-Rex with Roblox Noob Custom Colors
-        const benOc = {
-            body: '#0066cc', // Blue shirt
-            legs: '#33cc33', // Green pants
-            head: '#ffcc00', // Yellow head
-            neck: '#ffcc00', // Yellow neck
-            tail: '#0066cc'  // Blue tail (matching shirt)
-        };
-        _originalDrawDino('trex', cx, cy, face, af, sc, alpha, benOc);
-    } else {
-        _originalDrawDino(key, cx, cy, face, af, sc, alpha, oc);
-    }
-};
-
-const _originalDrawHat = drawHat;
-drawHat = function(type, cx, cy, sc) {
-    if (type === 'ben_cap') {
-        const s = sc || 1;
-        ctx.save(); ctx.translate(cx, cy);
-        
-        // Black Cap Base
-        ctx.fillStyle = '#111';
-        ctx.beginPath(); ctx.arc(0, -6*s, 11*s, Math.PI, 0); ctx.fill();
-        ctx.fillRect(-11*s, -6*s, 22*s, 6*s);
-        
-        // Brim
-        ctx.fillStyle = '#0a0a0a';
-        ctx.beginPath(); ctx.ellipse(8*s, 0, 11*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
-        
-        // White Logo Text
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${4.5*s}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillText('RBLX', 0, -4*s);
-        
-        ctx.restore();
-    } else {
-        _originalDrawHat(type, cx, cy, sc);
-    }
-};
-
-const _originalDrawWilds = drawWilds;
-drawWilds = function() {
-    _originalDrawWilds();
-    
-    // Add special golden aura and hat to wild Ben on the map
-    for (const w of G.wilds) {
-        if (w.key === 'ben') {
-            const sx = w.x - G.cam.x, sy = w.y - G.cam.y;
-            if (sx < -130 || sx > canvas.width + 130 || sy < -130 || sy > canvas.height + 130) continue;
+    // --- HOOK HAT SYSTEM (Add RBLX cap) ---
+    const _originalDrawHat = window.drawHat;
+    window.drawHat = function(type, cx, cy, sc) {
+        if (type === 'ben_cap') {
+            const s = sc || 1;
+            ctx.save(); ctx.translate(cx, cy);
             
-            // Golden Aura
-            const pulse = Math.sin(G.tick * 0.05) * 0.15 + 0.15;
-            ctx.fillStyle = `rgba(255, 220, 50, ${pulse})`;
-            ctx.beginPath(); ctx.arc(sx, sy, 90, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = 'rgba(255, 230, 80, 0.7)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([6, 6]);
-            ctx.beginPath(); ctx.arc(sx, sy, 90, 0, Math.PI*2); ctx.stroke();
-            ctx.setLineDash([]);
+            // Black Cap Base
+            ctx.fillStyle = '#111';
+            ctx.beginPath(); ctx.arc(0, -6*s, 11*s, Math.PI, 0); ctx.fill();
+            ctx.fillRect(-11*s, -6*s, 22*s, 6*s);
             
-            // Draw custom Cap
-            const headOff = DINOS.trex.sz * 1 * 0.55;
-            const bob = Math.sin(w.anim * 0.18) * 2.5;
-            drawHat('ben_cap', sx, sy - headOff + bob - 2, 1.2);
+            // Brim
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath(); ctx.ellipse(8*s, 0, 11*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
+            
+            // White Logo Text
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${4.5*s}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText('RBLX', 0, -4*s);
+            
+            ctx.restore();
+        } else {
+            _originalDrawHat(type, cx, cy, sc);
         }
-    }
-};
+    };
 
-const _originalDrawBattle = drawBattle;
-drawBattle = function() {
-    _originalDrawBattle();
-    
-    const b = G.battle;
-    // Draw the hat for Ben during the battle screen
-    if (!b.isPvP && b.ek === 'ben') {
-        const W = canvas.width, H = canvas.height;
-        const eshake = b.eshake > 0 ? (Math.random() - 0.5) * 10 : 0;
-        const eScale = 1.9; // Match standard wild battle scale
-        const epHeadY = H * 0.37 - DINOS.trex.sz * eScale * 0.55;
-        const bob = Math.sin(G.tick * 0.18) * 2.5;
-        drawHat('ben_cap', W * 0.67 + eshake, epHeadY + bob - 2, eScale * 0.85);
-    }
-};
+    // --- HOOK DINO DRAWING (Add Roblox Colors AND Hat) ---
+    const _originalDrawDino = window.drawDino;
+    window.drawDino = function(key, cx, cy, face, af, sc, alpha, oc) {
+        if (key === 'ben') {
+            // Roblox Noob Colors
+            const benOc = {
+                body: '#0066cc', // Blue shirt
+                legs: '#33cc33', // Green pants
+                head: '#ffcc00', // Yellow head
+                neck: '#ffcc00', // Yellow neck
+                tail: '#0066cc'  // Blue tail
+            };
+            
+            // Draw base T-Rex with Noob Colors
+            _originalDrawDino('trex', cx, cy, face, af, sc, alpha, benOc);
+            
+            // Force draw his custom hat right on top of him!
+            const s = sc || 1;
+            const headOff = DINOS.trex.sz * s * 0.55;
+            const bob = Math.sin(af * 0.18) * 2.5;
+            window.drawHat('ben_cap', cx, cy - headOff + bob - 2, s * 1.15);
+            
+        } else {
+            _originalDrawDino(key, cx, cy, face, af, sc, alpha, oc);
+        }
+    };
+
+}, 200); // 200ms delay ensures game.js & render.js are totally finished loading first!
