@@ -1,5 +1,5 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6.1)
+// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6.2)
 // ==========================================
 
 // Anti-Ghosting Safeguard
@@ -13,13 +13,13 @@ console.log("Loading AI Buddy Script...");
 // ── 1. AI BUDDY CONFIG & STATE ──
 window.AI_BUDDY = {
     active: true,
-    apiKey: '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', // HARDCODED PUBLIC KEY
+    apiKey: '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', // HARDCODED PUBLIC KEY
     model: 'groq/compound-mini',
     spawned: false,
     following: false,
     followingId: null, // Tracks who he is following
     coopPartnerId: null, // Tracks who he is fighting for
-    memory: [], // 1-Minute Chat History Array
+    memory: [], // 2-Minute Chat History Array
     x: 0,
     y: 0,
     targetX: 0, 
@@ -109,7 +109,7 @@ const origAddChatMessage = typeof addChatMessage !== 'undefined' ? addChatMessag
 addChatMessage = function(sender, msg) {
     if (origAddChatMessage) origAddChatMessage(sender, msg);
     
-    // 1-Minute Memory Storage (Only track actual players here)
+    // 2-Minute Memory Storage (Only track actual players here)
     if (window.AI_BUDDY && sender !== 'System' && sender !== 'dino buddy') {
         window.AI_BUDDY.memory.push({
             role: 'user',
@@ -166,19 +166,16 @@ async function askGroq(userMessage) {
     window.AI_BUDDY.isFetching = true;
     
     try {
-        // 1-Minute Memory Cleanup + Max 8 Messages to prevent looping
+        // 2-Minute Memory Cleanup + Max 8 Messages to prevent looping
         const now = Date.now();
-        window.AI_BUDDY.memory = window.AI_BUDDY.memory.filter(m => now - m.time <= 60000).slice(-8);
+        window.AI_BUDDY.memory = window.AI_BUDDY.memory.filter(m => now - m.time <= 120000).slice(-8);
 
-        // Silent Data-Scraper (Clean formatting so LLM doesn't break on truncated JSON)
+        // Silent Data-Scraper (Clean formatting for entire list of Dinos, Health, and Damage)
         let scrapedData = "";
         try {
             if (typeof DINOS !== 'undefined') {
-                let dStats = Object.keys(DINOS).map(k => `${DINOS[k].name}(HP:${DINOS[k].hp || 100})`);
-                scrapedData += "Dino Stats: " + dStats.join(', ').substring(0, 300) + "... | ";
-            }
-            if (typeof SHOP !== 'undefined') {
-                scrapedData += "Shop items exist."; // simplified to prevent token overload
+                let dStats = Object.keys(DINOS).map(k => `${DINOS[k].name}(HP:${DINOS[k].hp || 100}, DMG:${DINOS[k].atk || 10})`);
+                scrapedData += "Dino Stats: " + dStats.join(', ');
             }
         } catch(e) {}
 
