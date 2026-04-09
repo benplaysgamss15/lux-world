@@ -13,7 +13,7 @@ console.log("Loading AI Buddy Script...");
 // ── 1. AI BUDDY CONFIG & STATE ──
 window.AI_BUDDY = {
     active: true,
-    apiKey: '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', // HARDCODED PUBLIC KEY
+    apiKey: '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', // HARDCODED PUBLIC KEY
     model: 'groq/compound-mini',
     spawned: false,
     following: false,
