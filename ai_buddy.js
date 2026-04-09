@@ -1,5 +1,5 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6)
+// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6.1)
 // ==========================================
 
 // Anti-Ghosting Safeguard
@@ -17,9 +17,9 @@ window.AI_BUDDY = {
     model: 'groq/compound-mini',
     spawned: false,
     
-    // NEW: Multiplayer Tracking & 1-Minute Memory
+    // NEW: Replaced following boolean with specific Player IDs + Memory Array
     followingId: null, 
-    coopPartnerId: null,
+    coopPartnerId: null, 
     memory: [], 
     
     x: 0,
@@ -52,13 +52,10 @@ sendChatUI = function() {
         }
 
         const msg = chatInputEl.value.trim();
-        const cmd = msg.toLowerCase(); // Fixes capitalization bugs!
         
-        if (cmd.startsWith('/')) {
-            const isBotBrain = G.isHost || (!G.isHost && !G.peer); // Allows Solo Play too!
-            
-            if (cmd === '/summon') {
-                if (!isBotBrain) {
+        if (msg.startsWith('/')) {
+            if (msg === '/summon') {
+                if (!G.isHost) {
                     addChatMessage('System', 'Only the Room Host can summon the dino buddy!');
                 } else {
                     window.AI_BUDDY.spawned = true;
@@ -72,15 +69,15 @@ sendChatUI = function() {
                     updateBotSync(); 
                 }
             } 
-            else if (cmd === '/come') {
+            else if (msg === '/come') {
                 window.AI_BUDDY.followingId = 'host';
                 addChatMessage('System', 'Dino buddy is now following you.');
             }
-            else if (cmd === '/stop') {
+            else if (msg === '/stop') {
                 window.AI_BUDDY.followingId = null;
                 addChatMessage('System', 'Dino buddy is now wandering/hunting.');
             }
-            else if (cmd === '/dismiss') {
+            else if (msg === '/dismiss') {
                 window.AI_BUDDY.spawned = false;
                 delete G.otherPlayers['BOT_1'];
                 if (G.coop.partnerId === 'BOT_1') breakCoop("Dino buddy went home.");
@@ -111,11 +108,10 @@ const origAddChatMessage = typeof addChatMessage !== 'undefined' ? addChatMessag
 addChatMessage = function(sender, msg) {
     if (origAddChatMessage) origAddChatMessage(sender, msg);
     
-    const isBotBrain = G.isHost || (!G.isHost && !G.peer);
-    if (isBotBrain && window.AI_BUDDY.spawned && sender !== 'dino buddy' && sender !== 'System') {
+    if (G.isHost && window.AI_BUDDY.spawned && sender !== 'dino buddy' && sender !== 'System') {
         const lowerMsg = msg.toLowerCase();
         
-        // Find the ID of the person who sent the message
+        // NEW: Figure out exactly which player is talking to him
         let senderId = 'host';
         if (sender !== (G.username || 'You') && sender !== 'Host' && sender !== 'Player') {
             for (let id in G.otherPlayers) {
@@ -125,14 +121,14 @@ addChatMessage = function(sender, msg) {
         
         if (lowerMsg.includes('dino buddy, come')) {
             window.AI_BUDDY.followingId = senderId;
-            botSpeak(`I'm coming to you, ${sender}!`);
+            botSpeak(`Rawr! I'm coming to you, ${sender}!`);
         } 
         else if (lowerMsg.includes('dino buddy, stop')) {
             window.AI_BUDDY.followingId = null;
-            botSpeak("Got it, I'll hunt around here!");
+            botSpeak("Okay, I will hunt around here!");
         }
         else if (lowerMsg.includes('dino buddy')) {
-            askGroq(sender, msg); // Pass sender name for context!
+            askGroq(sender, msg); 
         }
     }
 };
@@ -146,7 +142,7 @@ function botSpeak(text) {
     }
 }
 
-// ── 4. GROQ API CONNECTION (WITH MEMORY & DYNAMIC KNOWLEDGE) ──
+// ── 4. GROQ API CONNECTION (WITH MEMORY & DATA SCRAPING) ──
 async function askGroq(senderName, userMessage) {
     if (window.AI_BUDDY.isFetching) return;
     if (!window.AI_BUDDY.apiKey) return;
@@ -154,21 +150,21 @@ async function askGroq(senderName, userMessage) {
     window.AI_BUDDY.isFetching = true;
     
     try {
-        // Scrapes exact game stats silently!
+        // NEW: Scrape exact game stats from data.js silently
         let dStats = "";
         if (typeof DINOS !== 'undefined') {
-            dStats = Object.keys(DINOS).map(k => `${DINOS[k].name}(${DINOS[k].hp}HP, ${DINOS[k].atk}Atk, ${DINOS[k].rw} Buckets)`).join(", ");
+            dStats = Object.keys(DINOS).map(k => `${DINOS[k].name}(${DINOS[k].hp}HP, ${DINOS[k].atk}Atk, ${DINOS[k].rw}Buckets)`).join(", ");
         }
 
-        const systemLore = `You are 'dino buddy', a fellow gamer playing DinoWorld with ${senderName}. 
-        Be super casual, friendly, and talk like a normal gamer. Use lowercase sometimes, be chill. DO NOT act like an AI, assistant, or bot.
-        Game Info you know (DO NOT say you read the code/database, just act like you memorized the wiki): 
-        Winning battles earns Buckets for the shop. Map 1 is Isla Uno (Boss: Megalodon). Map 2 is Volcano Island (Boss: Indominus Rex). Map 3 has an underwater cave with 3 puzzles (wire, counting, maze) and 2 bosses (Leviathan, Abyssal Serpent). You can do PvP or Co-op.
-        Dino Stats: ${dStats}.
-        Shop: Max HP(+28)=25 buckets, Atk(+5)=30 buckets, Spd(+0.5)=20 buckets, Shield(+15%)=40 buckets, Heal(+10%)=5 buckets.
-        CRITICAL RULE: Reply in EXACTLY 1 short casual sentence (under 15 words). No robot talk!`;
+        // NEW: Updated casual persona + dynamic stats injection
+        const systemLore = `You are 'dino buddy', a casual gamer playing DinoWorld. DO NOT act like an AI, bot, or formal guide. Act like a normal gamer who happens to know a lot about the game. Use lowercase sometimes, be chill. In this game players walk around the map and bump into wild dinosaurs to trigger turn based battles. Winning battles earns Buckets which is the currency used in the shop. Map 1 is Isla Uno (Boss: Megalodon). Map 2 is Volcano Island (Boss: Indominus Rex). Map 3 has an underwater cave with 3 puzzles (wire, counting, maze) and 2 bosses (Leviathan, Abyssal Serpent). You can do PvP or Co-op.
+        
+        EXACT GAME STATS (Act like you memorized the wiki, NEVER say you read the code): ${dStats}.
+        SHOP COSTS: Max HP(+28)=25 buckets, Atk(+5)=30 buckets, Spd(+0.5)=20 buckets, Shield(+15%)=40 buckets, Heal(+10%)=5 buckets.
+        
+        CRITICAL RULE: YOU MUST REPLY IN EXACTLY 1 VERY SHORT CASUAL SENTENCE. NO MORE THAN 15 WORDS TOTAL. The person talking to you is named: ${senderName}.`;
 
-        // 1-Minute Memory Timer
+        // NEW: 1-Minute Conversation Memory
         const now = Date.now();
         window.AI_BUDDY.memory.push({ role: "user", content: `${senderName}: ${userMessage}`, time: now });
         window.AI_BUDDY.memory = window.AI_BUDDY.memory.filter(m => now - m.time < 60000); 
@@ -195,7 +191,7 @@ async function askGroq(senderName, userMessage) {
         
         if (data.error) {
             console.error("Groq API Error:", data.error.message);
-            botSpeak(`Ah man, Groq error: ${data.error.message.split('.')[0]}`);
+            botSpeak(`Rawr... Groq Error: ${data.error.message.split('.')[0]}`);
         } 
         else if (data.choices && data.choices.length > 0) {
             let reply = data.choices[0].message.content.trim();
@@ -205,19 +201,18 @@ async function askGroq(senderName, userMessage) {
         
     } catch (err) {
         console.error("Network Error:", err);
-        botSpeak("My internet is lagging right now, hold on!");
+        botSpeak("Rawr... I can't connect to the internet right now!");
     }
     
     window.AI_BUDDY.isFetching = false;
 }
 
-// ── 4.5 MONKEY PATCH: CO-OP PACKET ROUTING & BATTLE AI ──
+// ── 4.5. MONKEY PATCH: CO-OP GUEST ROUTING ──
 const origSendCoop = typeof sendCoop !== 'undefined' ? sendCoop : null;
 if (origSendCoop) {
     sendCoop = function(data) {
         if (data.target === 'BOT_1') {
-            const isBotBrain = G.isHost || (!G.isHost && !G.peer);
-            if (isBotBrain) handleBotCoop(data);
+            if (G.isHost) handleBotCoop(data);
             else { data.target = 'host'; data.forBot = true; origSendCoop(data); }
             return;
         }
@@ -228,8 +223,7 @@ if (origSendCoop) {
 const origHandleCoopMessage = typeof handleCoopMessage !== 'undefined' ? handleCoopMessage : null;
 if (origHandleCoopMessage) {
     handleCoopMessage = function(data) {
-        const isBotBrain = G.isHost || (!G.isHost && !G.peer);
-        if (data.forBot && isBotBrain && window.AI_BUDDY.spawned) {
+        if (data.forBot && G.isHost && window.AI_BUDDY.spawned) {
             handleBotCoop(data);
             return;
         }
@@ -271,19 +265,23 @@ function updateBotSync() {
     };
 }
 
+// 5A. MASTER GAME LOOP INTERCEPT (For Host Co-op Attacking)
 const origMasterUpdate = typeof update !== 'undefined' ? update : null;
 update = function() {
     if (origMasterUpdate) origMasterUpdate();
     
-    const isBotBrain = G.isHost || (!G.isHost && !G.peer);
-    if (isBotBrain && window.AI_BUDDY.spawned) {
+    if (G.isHost && window.AI_BUDDY.spawned) {
         if (G.state === 'battle' && G.battle.isCoop && window.AI_BUDDY.coopPartnerId === 'host') {
+            
             if (G.battle.turn === 'partner' && !G.battle.anim && !G.battle.res) {
                 window.AI_BUDDY.battleWait++;
+                
                 if (window.AI_BUDDY.battleWait > 60) {
                     window.AI_BUDDY.battleWait = 0;
+                    
                     const botDino = DINOS[window.AI_BUDDY.dk] || DINOS['raptor'];
                     const dmg = Math.max(1, Math.floor(botDino.atk * R_MULT[botDino.rarity]));
+                    
                     if (typeof processCoopBattleAction === 'function') {
                         processCoopBattleAction({ action: 'player_attack', dmg: dmg });
                     }
@@ -295,12 +293,12 @@ update = function() {
     }
 };
 
+// 5B. THE WORLD ENGINE & HUNTING
 const origBotUpdateWorld = typeof updateWorld !== 'undefined' ? updateWorld : null;
 updateWorld = function() {
     if (origBotUpdateWorld) origBotUpdateWorld();
     
-    const isBotBrain = G.isHost || (!G.isHost && !G.peer);
-    if (isBotBrain && window.AI_BUDDY.spawned) {
+    if (G.isHost && window.AI_BUDDY.spawned) {
         
         if (G.coop.reqTo === 'BOT_1') {
             G.coop.reqTo = null; 
@@ -309,6 +307,7 @@ updateWorld = function() {
             window.AI_BUDDY.coopPartnerId = 'host';
         }
         
+        // NEW: Determine exactly who the bot is following!
         let activeTarget = window.AI_BUDDY.followingId || window.AI_BUDDY.coopPartnerId;
         let tx = null, ty = null;
         
@@ -340,7 +339,6 @@ updateWorld = function() {
         } 
         else if (G.state === 'world') {
             
-            // --- ACTUAL OVERWORLD FIGHT SEQUENCE ---
             if (window.AI_BUDDY.activityTimer > 0) {
                 window.AI_BUDDY.activityTimer--; 
                 
