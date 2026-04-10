@@ -705,8 +705,8 @@ function update(){
         }
     }
     
-    // SAVE EVERY 300 TICKS (approx 5 seconds)
-    if(G.tick % 300 === 0 && G.state === 'world') {
+    // SAVE EVERY 18000 TICKS (approx 5 minutess)
+    if(G.tick % 18000 === 0 && G.state === 'world') {
         saveGame();
     }
     
