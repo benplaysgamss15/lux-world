@@ -1,3 +1,5 @@
+Multiplayer.js
+
 // ── CHAT SYSTEM & FILTER ──
 function filterMessage(msg) {
     const badWords =['fuck', 'shit', 'bitch', 'asshole', 'damn', 'crap', 'dumbass', 'nigger', 'nigga', 'cunt', 'slut', 'whore', 'faggot', 'dick', 'cock', 'pussy', 'bastard'];
