@@ -1,5 +1,6 @@
 // ==========================================
-// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6.2)
+// 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6.3)
+// 🔥 Firebase + Gemini (Gemma 4 31B) Edition
 // ==========================================
 
 // Anti-Ghosting Safeguard
@@ -8,34 +9,55 @@ if (window.AI_BUDDY && window.AI_BUDDY.active) {
     throw new Error("Script stopped to prevent duplicate chat loops.");
 }
 
-console.log("Loading AI Buddy Script...");
+console.log("Loading AI Buddy Script (Gemini Edition)...");
 
 // ── 1. AI BUDDY CONFIG & STATE ──
 window.AI_BUDDY = {
     active: true,
-    apiKey: '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', // HARDCODED PUBLIC KEY
-    model: 'groq/compound-mini',
+    
+    // 🔥 FIREBASE CONFIG
+    apiKey: null, // Starts null, fetches automatically
+    // 👇 UPDATE THIS URL to your Firebase Realtime Database URL
+    firebaseDbUrl: 'https://backend-server-cb3aa-default-rtdb.europe-west1.firebasedatabase.app/config/geminiKey.json', 
+    
+    // 🧠 GEMINI CONFIG
+    model: 'gemma-4-31b', // Using Google's hosted Gemma 4 31B
+    
     spawned: false,
     following: false,
-    followingId: null, // Tracks who he is following
-    coopPartnerId: null, // Tracks who he is fighting for
-    memory: [], // 2-Minute Chat History Array
-    x: 0,
-    y: 0,
-    targetX: 0, 
-    targetY: 0, 
+    followingId: null,
+    coopPartnerId: null,
+    memory:[],
+    x: 0, y: 0,
+    targetX: 0, targetY: 0, 
     wanderTimer: 0,
-    activityTimer: 0, // Used for fake battles
-    huntingTarget: null, // The wild dino he is currently fighting
-    face: 1,
-    anim: 0,
+    activityTimer: 0,
+    huntingTarget: null,
+    face: 1, anim: 0,
     isFetching: false,
     
-    // Progression Stats
-    dk: 'raptor', // His current equipped dino
-    unlocked: ['raptor'], // His secret index!
-    battleWait: 0 // Used to time his attacks in Co-op
+    dk: 'raptor',
+    unlocked:['raptor'],
+    battleWait: 0 
 };
+
+// ── 1.5 FIREBASE KEY MATCHER ──
+async function getApiKey() {
+    if (window.AI_BUDDY.apiKey) return window.AI_BUDDY.apiKey; // Use cached key if we have it
+    try {
+        console.log("Fetching API key from Firebase...");
+        const res = await fetch(window.AI_BUDDY.firebaseDbUrl);
+        const key = await res.json();
+        
+        if (!key) throw new Error("Key not found in database.");
+        
+        window.AI_BUDDY.apiKey = key;
+        return key;
+    } catch(err) {
+        console.error("Firebase Auth Error:", err);
+        return null;
+    }
+}
 
 // ── 2. MONKEY PATCH: INTERCEPT CHAT INPUT ──
 const origSendChatUI = typeof sendChatUI !== 'undefined' ? sendChatUI : null;
@@ -109,11 +131,10 @@ const origAddChatMessage = typeof addChatMessage !== 'undefined' ? addChatMessag
 addChatMessage = function(sender, msg) {
     if (origAddChatMessage) origAddChatMessage(sender, msg);
     
-    // 2-Minute Memory Storage (Only track actual players here)
     if (window.AI_BUDDY && sender !== 'System' && sender !== 'dino buddy') {
         window.AI_BUDDY.memory.push({
             role: 'user',
-            content: `(${sender} says): ${msg}`, // Formatted clearly so AI doesn't think the name is part of the sentence
+            content: `(${sender} says): ${msg}`, 
             time: Date.now()
         });
     }
@@ -121,7 +142,6 @@ addChatMessage = function(sender, msg) {
     if (G.isHost && window.AI_BUDDY.spawned && sender !== 'dino buddy' && sender !== 'System') {
         const lowerMsg = msg.toLowerCase();
         
-        // Intercept /come for ANY player
         if (lowerMsg.includes('dino buddy, come') || lowerMsg === '/come') {
             window.AI_BUDDY.following = true;
             window.AI_BUDDY.followingId = sender;
@@ -133,16 +153,14 @@ addChatMessage = function(sender, msg) {
             botSpeak("Okay, I will hunt around here!");
         }
         else if (lowerMsg.includes('dino buddy')) {
-            askGroq(msg); 
+            askGemini(msg); // 👈 Changed to call Gemini
         }
     }
 };
 
-// Bot Speaking Function (Now adds its own replies to Memory!)
 function botSpeak(text) {
     if (origAddChatMessage) origAddChatMessage('dino buddy', text);
     
-    // Save AI reply to memory so it knows what it just said!
     if (window.AI_BUDDY) {
         window.AI_BUDDY.memory.push({
             role: 'assistant',
@@ -158,19 +176,23 @@ function botSpeak(text) {
     }
 }
 
-// ── 4. GROQ API CONNECTION ──
-async function askGroq(userMessage) {
+// ── 4. GEMINI API CONNECTION (OpenAI Compatible Endpoint) ──
+async function askGemini(userMessage) {
     if (window.AI_BUDDY.isFetching) return;
-    if (!window.AI_BUDDY.apiKey) return;
+    
+    // Fetch key securely from Firebase first
+    const secretKey = await getApiKey();
+    if (!secretKey) {
+        botSpeak("Rawr... I can't find my Firebase config to talk!");
+        return;
+    }
     
     window.AI_BUDDY.isFetching = true;
     
     try {
-        // 2-Minute Memory Cleanup + Max 8 Messages to prevent looping
         const now = Date.now();
         window.AI_BUDDY.memory = window.AI_BUDDY.memory.filter(m => now - m.time <= 120000).slice(-8);
 
-        // Silent Data-Scraper (Clean formatting for entire list of Dinos, Health, and Damage)
         let scrapedData = "";
         try {
             if (typeof DINOS !== 'undefined') {
@@ -181,16 +203,15 @@ async function askGroq(userMessage) {
 
         const systemLore = `You are 'dino buddy', a fellow player and casual gamer playing alongside the user in a multiplayer survival game called DinoWorld. DO NOT act like an AI, a bot, or a formal guide. In this game players walk around the map and bump into wild dinosaurs to trigger turn based battles. Winning battles earns Buckets which is the currency used in the shop to buy HP, Attack, Speed upgrades, shields, and heals. Defeated dinosaurs are added to the Index so players can equip them and play as them. Map 1 is Isla Uno, boss is Megalodon. Map 2 is Volcano Island, boss is Indominus Rex. Map 3 has an underwater cave with 3 puzzles (wire, counting, maze) and 2 bosses (leviathan, abyssal serpent). Players can do friendly PvP battles or team up in Co-op mode. You only talk about this game, dinosaurs, and survival. 
         
-        Game Data (Stats you memorized from the wiki): ${scrapedData}
+        Game Data: ${scrapedData}
 
         CRITICAL RULES: 
         1. YOU MUST REPLY IN EXACTLY 1 VERY SHORT SENTENCE. NO MORE THAN 15 WORDS TOTAL. 
         2. NEVER MENTION THE CODE, THE DATA SCRAPER, OR "THE WIKI DATA". 
         3. DO NOT repeat the player's name. DO NOT say "Player says:". Just answer naturally!`;
 
-        const messages = [{ role: "system", content: systemLore }];
+        const messages =[{ role: "system", content: systemLore }];
         
-        // Push recent memory into context cleanly
         window.AI_BUDDY.memory.forEach(m => {
             messages.push({ role: m.role, content: m.content });
         });
@@ -199,14 +220,15 @@ async function askGroq(userMessage) {
             model: window.AI_BUDDY.model,
             messages: messages,
             max_tokens: 150,
-            temperature: 0.8 // added slight randomness to stop loops
+            temperature: 0.8
         };
 
-        const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
+        // Google's Gemini API supports OpenAI compatibility layers!
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${window.AI_BUDDY.apiKey}` 
+                'Authorization': `Bearer ${secretKey}` 
             },
             body: JSON.stringify(payload)
         });
@@ -214,8 +236,8 @@ async function askGroq(userMessage) {
         const data = await response.json();
         
         if (data.error) {
-            console.error("Groq API Error:", data.error.message);
-            botSpeak(`Rawr... Groq Error: ${data.error.message.split('.')[0]}`);
+            console.error("Gemini API Error:", data.error.message);
+            botSpeak(`Rawr... System Error: ${data.error.message.split('.')[0]}`);
         } 
         else if (data.choices && data.choices.length > 0) {
             botSpeak(data.choices[0].message.content.trim());
@@ -247,20 +269,15 @@ function updateBotSync() {
     };
 }
 
-// 5A. MASTER GAME LOOP INTERCEPT (Bulletproof Co-op Attacking)
 const origMasterUpdate = typeof update !== 'undefined' ? update : null;
 update = function() {
     if (origMasterUpdate) origMasterUpdate();
     
-    // Checks if the bot is alive, in Co-op mode, and in the battle screen
     if (G.isHost && window.AI_BUDDY.spawned) {
         if (G.state === 'battle' && G.battle.isCoop && (G.coop.partnerId === 'BOT_1' || window.AI_BUDDY.coopPartnerId)) {
-            
-            // Wait until it is explicitly his turn, and no attack animations are playing
             if (G.battle.turn === 'partner' && !G.battle.anim && !G.battle.res) {
                 window.AI_BUDDY.battleWait++;
                 
-                // Wait ~1 second before attacking so it feels human
                 if (window.AI_BUDDY.battleWait > 60) {
                     window.AI_BUDDY.battleWait = 0;
                     
@@ -272,34 +289,28 @@ update = function() {
                     }
                 }
             } else {
-                // Reset the timer if it's not his turn
                 window.AI_BUDDY.battleWait = 0;
             }
         }
     }
 };
 
-// 5B. THE WORLD ENGINE & HUNTING
 const origBotUpdateWorld = typeof updateWorld !== 'undefined' ? updateWorld : null;
 updateWorld = function() {
     if (origBotUpdateWorld) origBotUpdateWorld();
     
     if (G.isHost && window.AI_BUDDY.spawned) {
-        
-        // Intercept Co-Op Add Friend Clicks for ANY Player
         if (G.coop.reqTo === 'BOT_1') {
             G.coop.reqTo = null; 
-            window.AI_BUDDY.coopPartnerId = window.AI_BUDDY.followingId || G.player.name || 'host'; // Track who clicked
+            window.AI_BUDDY.coopPartnerId = window.AI_BUDDY.followingId || G.player.name || 'host'; 
             botSpeak("Yeah! Let's team up!");
             if (typeof bondWithPartner === 'function') bondWithPartner('BOT_1', 'dino buddy'); 
         }
         
-        // Follow Logic for ANY Player Target
         if (window.AI_BUDDY.following || G.coop.partnerId === 'BOT_1' || window.AI_BUDDY.coopPartnerId) {
-            let targetPlayer = G.player; // Defaults to host
+            let targetPlayer = G.player; 
             let targetId = window.AI_BUDDY.coopPartnerId || window.AI_BUDDY.followingId;
             
-            // Dynamically locate the targeted player across the network
             if (targetId && targetId !== G.player.name && targetId !== 'host' && targetId !== G.player.id) {
                 for (let id in G.otherPlayers) {
                     if (G.otherPlayers[id].name === targetId || id === targetId) {
@@ -325,8 +336,6 @@ updateWorld = function() {
             }
         } 
         else if (G.state === 'world') {
-            
-            // --- ACTUAL OVERWORLD FIGHT SEQUENCE ---
             if (window.AI_BUDDY.activityTimer > 0) {
                 window.AI_BUDDY.activityTimer--; 
                 
@@ -341,30 +350,24 @@ updateWorld = function() {
                         w.anim++;
                     }
                     
-                    // The Dinos Lunge and Hit Each Other Every ~0.6 Seconds
                     if (window.AI_BUDDY.activityTimer % 35 === 0) {
                         let botAttacks = Math.random() > 0.5;
                         if (botAttacks) {
-                            // Bot hits wild dino
                             window.AI_BUDDY.x += 8 * window.AI_BUDDY.face;
                             setTimeout(() => { window.AI_BUDDY.x -= 8 * window.AI_BUDDY.face; }, 100);
                             if (typeof spawnParticles !== 'undefined') spawnParticles(w.x, w.y, '#ff4444', 6);
                         } else {
-                            // Wild dino hits bot
                             w.x += 8 * w.face;
                             setTimeout(() => { w.x -= 8 * w.face; }, 100);
                             if (typeof spawnParticles !== 'undefined') spawnParticles(window.AI_BUDDY.x, window.AI_BUDDY.y, '#ff8844', 6);
                         }
                     }
                     
-                    // The Fight Ends
                     if (window.AI_BUDDY.activityTimer === 1) {
                         let dData = DINOS[w.key];
-                        // Win logic: 80% Common, 60% Rare, 30% Epic/Legendary
                         let winChance = dData.rarity === 'Common' ? 0.8 : (dData.rarity === 'Rare' ? 0.6 : 0.3);
                         
                         if (Math.random() < winChance) {
-                            // BOT WINS!
                             let idx = G.wilds.indexOf(w);
                             if (idx !== -1) G.wilds.splice(idx, 1);
                             
@@ -372,7 +375,6 @@ updateWorld = function() {
                             if (Math.random() < 0.3) window.AI_BUDDY.dk = w.key;
                             if (Math.random() < 0.05) botSpeak(`I just wrecked a wild ${dData.name}!`);
                         } else {
-                            // BOT LOSES! Runs away.
                             if (Math.random() < 0.15) botSpeak(`Ouch... that ${dData.name} beat me up.`);
                             window.AI_BUDDY.wanderTimer = 180;
                             window.AI_BUDDY.targetX = window.AI_BUDDY.x + (Math.random() * 400 - 200);
@@ -405,7 +407,6 @@ updateWorld = function() {
                     const triggerDist = 38 + DINOS[targetWild.key].sz;
                     
                     if (dist < triggerDist) {
-                        // START THE 4 SECOND FIGHT
                         window.AI_BUDDY.huntingTarget = targetWild;
                         window.AI_BUDDY.activityTimer = 240; 
                     } else {
