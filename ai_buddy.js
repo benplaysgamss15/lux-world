@@ -21,7 +21,7 @@ window.AI_BUDDY = {
     firebaseDbUrl: 'https://backend-server-cb3aa-default-rtdb.europe-west1.firebasedatabase.app/config/geminiKey.json', 
     
     // 🧠 GEMINI CONFIG
-    model: 'gemma-4-31b', // Using Google's hosted Gemma 4 31B
+    model: 'gemini-3.1-flash-lite-preview', // Using Google's hosted Gemini 3.1 Flash Lite
     
     spawned: false,
     following: false,
