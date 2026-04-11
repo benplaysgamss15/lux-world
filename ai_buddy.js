@@ -17,7 +17,7 @@ window.AI_BUDDY = {
     
     // 🔥 FIREBASE CONFIG
     apiKey: null, // Starts null, fetches automatically
-    // 👇 UPDATE THIS URL to your Firebase Realtime Database URL
+    // 👇 Your exact Firebase URL has been implemented here:
     firebaseDbUrl: 'https://backend-server-cb3aa-default-rtdb.europe-west1.firebasedatabase.app/config/geminiKey.json', 
     
     // 🧠 GEMINI CONFIG
@@ -153,7 +153,7 @@ addChatMessage = function(sender, msg) {
             botSpeak("Okay, I will hunt around here!");
         }
         else if (lowerMsg.includes('dino buddy')) {
-            askGemini(msg); // 👈 Changed to call Gemini
+            askGemini(msg); 
         }
     }
 };
