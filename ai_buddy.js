@@ -1,6 +1,6 @@
 // ==========================================
 // 🤖 DINOWORLD AI BUDDY SCRIPT (PUBLIC V6.3)
-// 🔥 Firebase + Gemini (Gemma 4 31B) Edition
+// 🔥 Firebase + Groq (Llama 3.1 8B) Edition
 // ==========================================
 
 // Anti-Ghosting Safeguard
@@ -9,7 +9,7 @@ if (window.AI_BUDDY && window.AI_BUDDY.active) {
     throw new Error("Script stopped to prevent duplicate chat loops.");
 }
 
-console.log("Loading AI Buddy Script (Gemini Edition)...");
+console.log("Loading AI Buddy Script (Groq Edition)...");
 
 // ── 1. AI BUDDY CONFIG & STATE ──
 window.AI_BUDDY = {
@@ -20,8 +20,8 @@ window.AI_BUDDY = {
     // 👇 Your exact Firebase URL has been implemented here:
     firebaseDbUrl: 'https://backend-server-cb3aa-default-rtdb.europe-west1.firebasedatabase.app/config/geminiKey.json', 
     
-    // 🧠 GEMINI CONFIG
-    model: 'gemini-3.1-flash-lite-preview', // Using Google's hosted Gemini 3.1 Flash Lite
+    // 🧠 GROQ / LLAMA CONFIG
+    model: 'llama-3.1-8b-instant', // Switched to Groq's lightning-fast Llama 3.1 model
     
     spawned: false,
     following: false,
@@ -176,7 +176,7 @@ function botSpeak(text) {
     }
 }
 
-// ── 4. GEMINI API CONNECTION (OpenAI Compatible Endpoint) ──
+// ── 4. AI API CONNECTION (Groq Endpoint) ──
 async function askGemini(userMessage) {
     if (window.AI_BUDDY.isFetching) return;
     
@@ -223,8 +223,8 @@ async function askGemini(userMessage) {
             temperature: 0.8
         };
 
-        // Google's Gemini API supports OpenAI compatibility layers!
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, {
+        // 👇 CHANGED TO GROQ'S API ENDPOINT
+        const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -236,7 +236,7 @@ async function askGemini(userMessage) {
         const data = await response.json();
         
         if (data.error) {
-            console.error("Gemini API Error:", data.error.message);
+            console.error("API Error:", data.error.message);
             botSpeak(`Rawr... System Error: ${data.error.message.split('.')[0]}`);
         } 
         else if (data.choices && data.choices.length > 0) {
